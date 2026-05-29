@@ -751,7 +751,7 @@ function TabCuadre() {
                   ...(Number(preview.ventas_transferencia||0)>0?[["📲 Transferencia",preview.ventas_transferencia]]:[]),
                 ].map(([lbl,val])=>(
                   <div key={lbl} style={S.cuadreRow}>
-                    <span style={{color:"#555"}}>{lbl}</span>
+                    <span style={{color:"#374151"}}>{lbl}</span>
                     <span style={{fontWeight:600}}>{fmt(val)}</span>
                   </div>
                 ))}
@@ -762,7 +762,7 @@ function TabCuadre() {
               <div>
                 <div style={S.cuadreSecTitle}>⚖️ Cuadre efectivo</div>
                 <div style={S.cuadreRow}>
-                  <span style={{color:"#555"}}>Efectivo esperado</span>
+                  <span style={{color:"#374151"}}>Efectivo esperado</span>
                   <span style={{fontWeight:700,color:"#10b981"}}>{fmt(preview.ventas_efectivo)}</span>
                 </div>
                 <div style={{marginTop:12}}>
@@ -800,7 +800,7 @@ function TabCuadre() {
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead>
                 <tr>{["Fecha","Trans.","Efectivo","Tarj.+Transfer.","Total","Contado","Diferencia",""].map(h=>(
-                  <th key={h} style={{textAlign:"left",padding:"10px 10px",background:"#fef9c3",fontSize:12,fontWeight:700,borderBottom:"2px solid #fde68a"}}>{h}</th>
+                  <th key={h} style={{textAlign:"left",padding:"10px 10px",background:"#fef9c3",fontSize:12,fontWeight:700,borderBottom:"2px solid #fde68a",color:"#78350f"}}>{h}</th>
                 ))}</tr>
               </thead>
               <tbody>
@@ -890,9 +890,9 @@ const S = {
   prodThumb:{width:44,height:44,borderRadius:8,objectFit:"cover" as const,flexShrink:0},
   prodThumbPlaceholder:{width:44,height:44,borderRadius:8,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0},
   histRow:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#1e293b",borderRadius:12,border:"1px solid #334155"},
-  td:{padding:"8px 10px",borderBottom:"1px solid #fef9c3",fontSize:13},
-  cuadreSecTitle:{fontWeight:700,fontSize:12,color:"#92400e",textTransform:"uppercase" as const,letterSpacing:.5,marginBottom:8},
-  cuadreRow:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #fef3c7",fontSize:13},
+  td:{padding:"8px 10px",borderBottom:"1px solid #e5e7eb",fontSize:13,color:"#111827"},
+  cuadreSecTitle:{fontWeight:700,fontSize:12,color:"#78350f",textTransform:"uppercase" as const,letterSpacing:.5,marginBottom:8},
+  cuadreRow:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #e5e7eb",fontSize:13,color:"#111827"},
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
