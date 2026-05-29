@@ -697,7 +697,7 @@ function TabCuadre() {
 
   const generarPreview=async()=>{
     setFetching(true); setPreview(null);
-    try{ const r=await fetch(`${API}/cafeteria/cuadre/auto?fecha=${fechaSel}`); const d=await r.json(); setPreview(d); }
+    try{ const r=await fetch(`${API}/cafeteria/cuadre/auto?fecha=${fechaSel}`); const d=await r.json(); setPreview(d?.data ?? d); }
     catch{ alert("Error al calcular"); } setFetching(false);
   };
 
