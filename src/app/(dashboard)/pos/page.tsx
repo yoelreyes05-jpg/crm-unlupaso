@@ -1,8 +1,8 @@
 "use client";
 /**
  * ╔══════════════════════════════════════════════════════════╗
- * ║  UNLUPASO — Sistema POS Completo                        ║
- * ║  Un lugar para soñar · Tel: 829-644-7991                ║
+ * ║  Gelatilandia — Sistema POS Completo                        ║
+ * ║  Gelatilandia · Tel: 829-404-1644                ║
  * ╚══════════════════════════════════════════════════════════╝
  */
 
@@ -12,9 +12,9 @@ import type { UlProducto, UlVenta, UlCuadre, MetodoPago, NcfTipo } from "@/types
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const NEGOCIO = {
-  nombre:    "UNLUPASO",
-  slogan:    "Un lugar para soñar",
-  telefono:  "829-644-7991",
+  nombre:    "Gelatilandia",
+  slogan:    "El sabor de tus sueños",
+  telefono:  "829-404-1644",
   rnc:       "",
   direccion: "",
 };
@@ -99,6 +99,48 @@ function generarRecibo(items: ItemCarrito[], total: number, metodo: string, ncf:
     <div style="font-size:9px;opacity:0.6;margin-bottom:2px;">COMPROBANTE FISCAL — ${ncfDesc}</div>
     <div class="ncf-num">${ncf}</div>
   </div>` : ""}
+  <hr/>
+  <div class="center sm">¡Gracias por su visita!<br/>${NEGOCIO.nombre} · ${NEGOCIO.telefono}</div>
+  </body></html>`;
+}
+
+function generarReciboHistorial(v: UlVenta): string {
+  const fecha = v.created_at
+    ? new Date(v.created_at).toLocaleString("es-DO",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})
+    : "—";
+  const ncfDesc = NCF_DESC[v.ncf_tipo] || v.ncf_tipo;
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>Factura ${v.numero||v.id}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Courier New',monospace;font-size:13px;max-width:320px;margin:0 auto;padding:18px 14px;}
+    .center{text-align:center;} .bold{font-weight:700;} .lg{font-size:16px;}
+    .sm{font-size:11px;color:#666;}
+    hr{border:none;border-top:1px dashed #ccc;margin:10px 0;}
+    .total-row{display:flex;justify-content:space-between;padding:9px 0;font-size:16px;font-weight:900;border-top:2px solid #111;margin-top:6px;}
+    .ncf-box{background:#111;color:#fff;padding:10px 12px;border-radius:6px;margin:12px 0;text-align:center;}
+    .ncf-num{font-size:16px;font-weight:900;letter-spacing:3px;}
+    @media print{body{padding:4px;}}
+  </style></head><body>
+  <div class="center">
+    <div class="bold lg">${NEGOCIO.nombre}</div>
+    <div class="sm">${NEGOCIO.slogan}</div>
+    <div class="sm">Tel: ${NEGOCIO.telefono}</div>
+  </div>
+  <hr/>
+  <div class="center sm">
+    Fecha: ${fecha}<br/>
+    Factura: ${v.numero||("#"+String(v.id).slice(-6))}<br/>
+    Comprobante: <strong>${ncfDesc}</strong>
+  </div>
+  <hr/>
+  <div class="total-row"><span>TOTAL</span><span>RD$ ${Number(v.total).toFixed(2)}</span></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:5px;color:#666;">
+    <span>Pago: ${v.metodo_pago}</span><span>${v.ncf_tipo} · ${ncfDesc}</span>
+  </div>
+  ${v.ncf?`<div class="ncf-box">
+    <div style="font-size:9px;opacity:0.6;margin-bottom:2px;">COMPROBANTE FISCAL — ${ncfDesc}</div>
+    <div class="ncf-num">${v.ncf}</div>
+  </div>`:""}
   <hr/>
   <div class="center sm">¡Gracias por su visita!<br/>${NEGOCIO.nombre} · ${NEGOCIO.telefono}</div>
   </body></html>`;
@@ -643,19 +685,27 @@ function TabHistorial() {
         {filtrado.map(v=>(
           <div key={v.id} style={S.histRow}>
             <div style={{background:"#0f172a",borderRadius:8,padding:"6px 10px",textAlign:"center",minWidth:52}}>
-              <div style={{fontSize:10,color:"#64748b"}}>#{String(v.id).padStart(4,"0")}</div>
+              <div style={{fontSize:10,color:"#64748b"}}>#{String(v.numero||v.id).slice(-6)}</div>
             </div>
             <div style={{flex:1}}>
               <div style={{fontSize:15,fontWeight:800,color:"#10b981"}}>RD$ {Number(v.total).toFixed(2)}</div>
               {v.ncf&&<div style={{fontSize:11,color:"#64748b"}}>NCF: {v.ncf}</div>}
+              <div style={{fontSize:11,color:"#64748b"}}>
+                {v.created_at?new Date(v.created_at).toLocaleString("es-DO"):"—"}
+              </div>
             </div>
-            <div style={{textAlign:"right"}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
               <span style={{background:metodoColor[v.metodo_pago]||"#64748b",color:"#fff",borderRadius:6,padding:"3px 9px",fontSize:11,fontWeight:700}}>
                 {v.metodo_pago}
               </span>
-              <div style={{fontSize:11,color:"#64748b",marginTop:4}}>
-                {v.created_at?new Date(v.created_at).toLocaleString("es-DO"):"—"}
-              </div>
+              <button
+                onClick={()=>{
+                  const html = generarReciboHistorial(v);
+                  imprimirHTML(html);
+                }}
+                style={{background:"#1e40af",color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                🖨️ Imprimir
+              </button>
             </div>
           </div>
         ))}
@@ -716,7 +766,7 @@ function TabCuadre() {
   return (
     <div style={{flex:1,overflowY:"auto",padding:24}}>
       <div style={{...S.lightCard,border:"2px solid #f59e0b",marginBottom:20}}>
-        <h3 style={{...S.lightCardTitle,color:"#92400e"}}>🏦 Cuadre Diario UNLUPASO</h3>
+        <h3 style={{...S.lightCardTitle,color:"#92400e"}}>🏦 Cuadre Diario Gelatilandia</h3>
         <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:160}}>
             <label style={S.lLabel}>Fecha del cuadre</label>
@@ -874,13 +924,4 @@ const S = {
   lInput:{display:"block",marginBottom:12,padding:"11px 12px",width:"100%",borderRadius:8,border:"1px solid #ddd",boxSizing:"border-box" as const,fontSize:14,background:"#fff",color:"#111"},
   lBtnPrimary:{display:"block",padding:"11px 20px",background:"#111827",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",width:"100%",fontWeight:700,fontSize:14},
   lBtnCancel:{padding:"11px 16px",background:"#f1f5f9",color:"#555",border:"1px solid #ddd",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14},
-  lBtnSm:{background:"#f1f5f9",color:"#555",border:"1px solid #e2e8f0",borderRadius:7,padding:"5px 10px",fontSize:12,cursor:"pointer"},
-  prodRow:{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid #f0f0f0"},
-  prodThumb:{width:50,height:50,borderRadius:8,objectFit:"cover" as const,border:"1px solid #e5e7eb",flexShrink:0},
-  prodThumbPlaceholder:{width:50,height:50,borderRadius:8,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0},
-  editBox:{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"12px 14px",marginBottom:8},
-  histRow:{background:"#1e293b",borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:16,border:"1px solid #334155"},
-  cuadreSecTitle:{fontWeight:700,fontSize:12,color:"#374151",textTransform:"uppercase" as const,letterSpacing:".5px",marginBottom:8,borderBottom:"2px solid #fde68a",paddingBottom:4},
-  cuadreRow:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f0f0f0",fontSize:13},
-  td:{padding:"10px 10px",borderBottom:"1px solid #f0f0f0",fontSize:13},
-} as const;
+ 

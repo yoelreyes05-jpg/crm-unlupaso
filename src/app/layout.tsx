@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "UNLUPASO — Sistema POS",
-  description: "Un lugar para soñar · Sistema de Punto de Venta",
+  title: "Gelatilandia — Sistema POS",
+  description: "Gelatilandia · Sistema de Punto de Venta",
   icons: { icon: "/favicon.ico" },
 };
 

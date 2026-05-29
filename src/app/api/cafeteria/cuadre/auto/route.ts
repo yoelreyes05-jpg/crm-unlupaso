@@ -14,14 +14,24 @@ export async function GET(req: NextRequest) {
     const supabase = createAdminClient();
     const { searchParams } = req.nextUrl;
 
-    const fecha = searchParams.get("fecha") ?? new Date().toISOString().slice(0, 10);
+    // Fecha local RD (UTC-4): si no se pasa fecha, usar hoy en zona RD
+    const offsetHours = 4; // República Dominicana = UTC-4
+    const ahora = new Date();
+    const fechaDefault = new Date(ahora.getTime() - offsetHours * 60 * 60 * 1000)
+      .toISOString().slice(0, 10);
+    const fecha = searchParams.get("fecha") ?? fechaDefault;
 
-    // Usar select("*") para evitar que TypeScript infiera "never" en columnas parciales
+    // Rango en UTC que cubre el día completo en zona UTC-4
+    // Día local empieza a las 04:00 UTC y termina a las 03:59:59 UTC del día siguiente
+    const inicioUTC = `${fecha}T04:00:00.000Z`;
+    const finFecha  = new Date(new Date(`${fecha}T04:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 19) + ".999Z";
+
     const { data: raw, error: ventasError } = await supabase
       .from("ul_ventas")
       .select("*")
-      .gte("created_at", `${fecha}T00:00:00.000Z`)
-      .lte("created_at", `${fecha}T23:59:59.999Z`);
+      .gte("created_at", inicioUTC)
+      .lte("created_at", finFecha);
 
     if (ventasError) throw ventasError;
 

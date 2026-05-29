@@ -1,4 +1,4 @@
-// ─── Configuración central UNLUPASO ──────────────────────────────────────────
+// ─── Configuración central Gelatilandia ──────────────────────────────────────────
 // Este archivo es el único lugar donde se define la URL de la API
 
 export const API_URL =
@@ -8,10 +8,6 @@ export const API_URL =
     : "/api");
 
 export const NEGOCIO = {
-  nombre:    "UNLUPASO",
-  slogan:    "Un lugar para soñar",
-  telefono:  "829-644-7991",
-  rnc:       "",
-  direccion: "",
-  moneda:    "DOP",
-} as const;
+  nombre:    "Gelatilandia",
+  slogan:    "El sabor de tus sueños",
+  telefo
