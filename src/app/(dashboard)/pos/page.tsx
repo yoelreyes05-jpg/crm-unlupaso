@@ -212,7 +212,7 @@ function TabPOS() {
   const [stockVal,    setStockVal]    = useState("");
 
   const cargarProductos = useCallback(async()=>{
-    try{ const r=await fetch(`${API}/cafeteria/productos`); const d=await r.json(); setProductos(Array.isArray(d)?d:[]); }
+    try{ const r=await fetch(`${API}/cafeteria/productos`); const d=await r.json(); setProductos(Array.isArray(d?.data)?d.data:Array.isArray(d)?d:[]); }
     catch{ setProductos([]); }
   },[]);
   useEffect(()=>{cargarProductos();},[cargarProductos]);
@@ -449,7 +449,7 @@ function TabProductos() {
   const fileEditRef = useRef<HTMLInputElement>(null);
 
   const obtener = useCallback(async()=>{
-    try{ const r=await fetch(`${API}/cafeteria/productos`); const d=await r.json(); setProductos(Array.isArray(d)?d:[]); }
+    try{ const r=await fetch(`${API}/cafeteria/productos`); const d=await r.json(); setProductos(Array.isArray(d?.data)?d.data:Array.isArray(d)?d:[]); }
     catch{ setProductos([]); }
   },[]);
   useEffect(()=>{obtener();},[obtener]);
@@ -595,7 +595,7 @@ function TabHistorial() {
 
   const cargar=useCallback(async()=>{
     setLoading(true);
-    try{ const r=await fetch(`${API}/cafeteria/ordenes`); const d=await r.json(); setHistorial(Array.isArray(d)?d:[]); }
+    try{ const r=await fetch(`${API}/cafeteria/ordenes`); const d=await r.json(); setHistorial(Array.isArray(d?.data)?d.data:Array.isArray(d)?d:[]); }
     catch{ setHistorial([]); } setLoading(false);
   },[]);
   useEffect(()=>{cargar();},[cargar]);
@@ -669,7 +669,7 @@ function TabCuadre() {
 
   const cargarHistorial=useCallback(async()=>{
     setLoading(true);
-    try{ const r=await fetch(`${API}/cafeteria/cuadre`); const d=await r.json(); setHistorial(Array.isArray(d)?d:[]); }
+    try{ const r=await fetch(`${API}/cafeteria/cuadre`); const d=await r.json(); setHistorial(Array.isArray(d?.data)?d.data:Array.isArray(d)?d:[]); }
     catch{ setHistorial([]); } setLoading(false);
   },[]);
   useEffect(()=>{cargarHistorial();},[cargarHistorial]);
