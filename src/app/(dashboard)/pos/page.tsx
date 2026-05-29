@@ -253,7 +253,18 @@ function TabPOS() {
     try{
       const res=await fetch(`${API}/cafeteria/venta`,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({items:snap.map(p=>({id:p.id,qty:p.qty,precio:p.precio})),total,metodo_pago:metodo,ncf_tipo:ncfTipo}),
+        body:JSON.stringify({
+          total, metodo_pago:metodo, ncf_tipo:ncfTipo,
+          items:snap.map(p=>({
+            producto_id:    p.id,
+            nombre_producto:p.nombre,
+            categoria:      p.categoria,
+            qty:            p.qty,
+            precio_unitario:p.precio,
+            costo_unitario: p.costo ?? 0,
+            subtotal:       p.precio * p.qty,
+          })),
+        }),
       });
       const data:UlVenta=await res.json();
       if(!res.ok||(data as any).error){ alert("❌ Error: "+((data as any).error||"Error")); return; }
