@@ -924,4 +924,53 @@ const S = {
   lInput:{display:"block",marginBottom:12,padding:"11px 12px",width:"100%",borderRadius:8,border:"1px solid #ddd",boxSizing:"border-box" as const,fontSize:14,background:"#fff",color:"#111"},
   lBtnPrimary:{display:"block",padding:"11px 20px",background:"#111827",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",width:"100%",fontWeight:700,fontSize:14},
   lBtnCancel:{padding:"11px 16px",background:"#f1f5f9",color:"#555",border:"1px solid #ddd",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14},
- 
+  lBtnSm:{padding:"5px 10px",background:"#f1f5f9",color:"#374151",border:"1px solid #e5e7eb",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:11},
+  prodRow:{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f0f0f0"},
+  prodThumb:{width:44,height:44,borderRadius:8,objectFit:"cover" as const,flexShrink:0},
+  prodThumbPlaceholder:{width:44,height:44,borderRadius:8,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0},
+  histRow:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#1e293b",borderRadius:12,border:"1px solid #334155"},
+  td:{padding:"8px 10px",borderBottom:"1px solid #fef9c3",fontSize:13},
+  cuadreSecTitle:{fontWeight:700,fontSize:12,color:"#92400e",textTransform:"uppercase" as const,letterSpacing:.5,marginBottom:8},
+  cuadreRow:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #fef3c7",fontSize:13},
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROOT COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+const TABS = ["POS","Productos","Historial","Cuadre"] as const;
+type Tab = typeof TABS[number];
+
+export default function UnlupasoPOS() {
+  const [tab, setTab] = useState<Tab>("POS");
+  return (
+    <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"#0f172a",color:"#f1f5f9",fontFamily:"system-ui,sans-serif"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 20px",height:54,background:"#0f172a",borderBottom:"1px solid #1e293b",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#f59e0b,#d97706)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🍦</div>
+          <div>
+            <div style={{fontWeight:900,fontSize:15,lineHeight:1}}>Gelatilandia</div>
+            <div style={{fontSize:10,color:"#64748b",lineHeight:1}}>El sabor de tus sueños</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:4}}>
+          {TABS.map(t=>(
+            <button key={t} onClick={()=>setTab(t)} style={{
+              padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:700,fontSize:12,
+              background:tab===t?"#f59e0b":"#1e293b",
+              color:tab===t?"#111":"#94a3b8",
+            }}>{t}</button>
+          ))}
+        </div>
+        <div style={{fontSize:12,color:"#64748b"}}>📞 829-404-1644</div>
+      </div>
+      {/* Content */}
+      <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+        {tab==="POS"       && <TabPOS/>}
+        {tab==="Productos" && <TabProductos/>}
+        {tab==="Historial" && <TabHistorial/>}
+        {tab==="Cuadre"    && <TabCuadre/>}
+      </div>
+    </div>
+  );
+}
