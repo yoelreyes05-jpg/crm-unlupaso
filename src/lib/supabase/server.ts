@@ -1,10 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
 
 /**
- * Cliente Supabase para uso en el servidor (API Routes, Server Actions).
- * Conecta al proyecto UNLUPASO - NO al crm-automotriz.
+ * Cliente Supabase para uso en Server Components / Server Actions.
+ * Usa la anon key con cookies para sesión del usuario.
  */
 export async function createClient() {
   const cookieStore = await cookies();
@@ -14,7 +15,7 @@ export async function createClient() {
     {
       cookies: {
         getAll:    () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
+        setAll: (cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) => {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
@@ -27,18 +28,16 @@ export async function createClient() {
 }
 
 /**
- * Cliente con service role (solo para API Routes que lo necesiten).
+ * Cliente admin con service role para API Routes.
+ * Usa createClient directo de @supabase/supabase-js (sin cookies, sin RLS).
+ * Typed with `any` internamente para evitar conflictos de inferencia con el
+ * Database type manual — en runtime funciona perfectamente.
  */
-export async function createAdminClient() {
-  const cookieStore = await cookies();
-  return createServerClient<Database>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createAdminClient(): any {
+  return createSupabaseClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll:    () => cookieStore.getAll(),
-        setAll: () => {},
-      },
-    }
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }

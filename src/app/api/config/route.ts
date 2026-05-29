@@ -49,7 +49,8 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "No hay campos válidos para actualizar" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from("ul_config")
       .upsert(upserts, { onConflict: "clave" })
       .select();

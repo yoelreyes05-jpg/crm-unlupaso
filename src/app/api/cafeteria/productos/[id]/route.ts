@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 // GET /api/cafeteria/productos/:id
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
+    const { id } = await params;
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("ul_productos")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error) throw error;
@@ -26,6 +27,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 // PUT /api/cafeteria/productos/:id  — actualización completa
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
+    const { id } = await params;
     const supabase = createAdminClient();
     const body = await req.json();
 
@@ -56,7 +58,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         codigo: codigo ?? null,
         itbis: Number(itbis ?? 0),
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -72,10 +74,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // PATCH /api/cafeteria/productos/:id  — actualización parcial
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
+    const { id } = await params;
     const supabase = createAdminClient();
     const body = await req.json();
 
-    // Sanitizar: solo campos permitidos
     const allowed = [
       "nombre", "descripcion", "precio", "costo", "categoria",
       "stock", "stock_minimo", "imagen", "activo", "codigo", "itbis",
@@ -92,7 +94,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const { data, error } = await supabase
       .from("ul_productos")
       .update(updates)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -108,12 +110,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 // DELETE /api/cafeteria/productos/:id  — archiva (activo = false)
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
+    const { id } = await params;
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
       .from("ul_productos")
       .update({ activo: false })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 

@@ -57,7 +57,7 @@ function imprimirHTML(html: string) {
   };
 }
 
-function generarRecibo(items: ItemCarrito[], total: number, metodo: string, ncf: string|null, ncfTipo: string, ventaId: number): string {
+function generarRecibo(items: ItemCarrito[], total: number, metodo: string, ncf: string|null, ncfTipo: string, ventaId: string): string {
   const fecha = new Date().toLocaleString("es-DO",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
   const ncfDesc = NCF_DESC[ncfTipo] || ncfTipo;
   const lineas = items.map(p =>
@@ -236,7 +236,7 @@ function TabPOS() {
       return [...prev,{...prod,qty:1}];
     });
   };
-  const cambiarQty=(id:number,delta:number)=>{
+  const cambiarQty=(id:string,delta:number)=>{
     setCarrito(prev=>prev.map(p=>p.id===id?{...p,qty:Math.max(0,p.qty+delta)}:p).filter(p=>p.qty>0));
   };
 
@@ -440,9 +440,9 @@ function TabProductos() {
   const [productos,   setProductos]   = useState<UlProducto[]>([]);
   const [nuevo,       setNuevo]       = useState({nombre:"",precio:"",categoria:"General",stock:""});
   const [nuevoImg,    setNuevoImg]    = useState("");
-  const [editId,      setEditId]      = useState<number|null>(null);
+  const [editId,      setEditId]      = useState<string|null>(null);
   const [editForm,    setEditForm]    = useState<any>({});
-  const [editImgId,   setEditImgId]   = useState<number|null>(null);
+  const [editImgId,   setEditImgId]   = useState<string|null>(null);
   const [editImgB64,  setEditImgB64]  = useState("");
   const [guardando,   setGuardando]   = useState(false);
   const fileNewRef  = useRef<HTMLInputElement>(null);
