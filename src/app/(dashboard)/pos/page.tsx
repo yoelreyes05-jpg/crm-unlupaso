@@ -196,46 +196,6 @@ function generarHTMLCuadre(c: UlCuadre): string {
   </body></html>`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPONENTE PRINCIPAL
-// ─────────────────────────────────────────────────────────────────────────────
-type Tab = "pos" | "productos" | "historial" | "cuadre";
-
-export default function UnlupasoPOS() {
-  const [tab, setTab] = useState<Tab>("pos");
-
-  return (
-    <div style={S.app}>
-      <header style={S.header}>
-        <div style={{display:"flex",alignItems:"center",gap:12,flex:1}}>
-          <span style={{fontSize:28}}>☕</span>
-          <div>
-            <div style={S.headerTitle}>{NEGOCIO.nombre}</div>
-            <div style={S.headerSub}>{NEGOCIO.slogan} · {NEGOCIO.telefono}</div>
-          </div>
-        </div>
-        <nav style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {([
-            {k:"pos"      ,icon:"🛒",label:"Punto de Venta"},
-            {k:"productos",icon:"📦",label:"Productos"},
-            {k:"historial",icon:"📋",label:"Historial"},
-            {k:"cuadre"   ,icon:"🏦",label:"Cuadre"},
-          ] as {k:Tab,icon:string,label:string}[]).map(t=>(
-            <button key={t.k} onClick={()=>setTab(t.k)} style={{
-              ...S.tabBtn,
-              background: tab===t.k?"#f59e0b":"#334155",
-              color:      tab===t.k?"#111"    :"#94a3b8",
-            }}>{t.icon} {t.label}</button>
-          ))}
-        </nav>
-      </header>
-      {tab==="pos"       && <TabPOS/>}
-      {tab==="productos" && <TabProductos/>}
-      {tab==="historial" && <TabHistorial/>}
-      {tab==="cuadre"    && <TabCuadre/>}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB POS
@@ -925,6 +885,7 @@ const S = {
   lBtnPrimary:{display:"block",padding:"11px 20px",background:"#111827",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",width:"100%",fontWeight:700,fontSize:14},
   lBtnCancel:{padding:"11px 16px",background:"#f1f5f9",color:"#555",border:"1px solid #ddd",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14},
   lBtnSm:{padding:"5px 10px",background:"#f1f5f9",color:"#374151",border:"1px solid #e5e7eb",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:11},
+  editBox:{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:14,marginTop:8},
   prodRow:{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f0f0f0"},
   prodThumb:{width:44,height:44,borderRadius:8,objectFit:"cover" as const,flexShrink:0},
   prodThumbPlaceholder:{width:44,height:44,borderRadius:8,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0},

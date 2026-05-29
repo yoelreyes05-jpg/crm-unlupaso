@@ -10,4 +10,8 @@ export const API_URL =
 export const NEGOCIO = {
   nombre:    "Gelatilandia",
   slogan:    "El sabor de tus sueños",
-  telefo
+  telefono:  "829-404-1644",
+  rnc:       "",
+  direccion: "",
+  moneda:    "DOP",
+} as const;
