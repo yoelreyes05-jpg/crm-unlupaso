@@ -878,7 +878,7 @@ const S = {
   modalInput:{width:"100%",background:"#334155",border:"1px solid #475569",borderRadius:8,color:"#f1f5f9",padding:"10px 12px",fontSize:16,marginBottom:14,boxSizing:"border-box" as const},
   modalBtnCancel:{flex:1,padding:10,background:"#334155",color:"#94a3b8",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700},
   modalBtnOk:{flex:1,padding:10,background:"#10b981",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700},
-  lightCard:{background:"#fff",padding:20,borderRadius:15,boxShadow:"0 4px 20px rgba(0,0,0,0.08)",marginBottom:16},
+  lightCard:{background:"#fff",padding:20,borderRadius:15,boxShadow:"0 4px 20px rgba(0,0,0,0.08)",marginBottom:16,color:"#111827"},
   lightCardTitle:{marginBottom:16,fontSize:18,fontWeight:700},
   lLabel:{display:"block",fontSize:13,fontWeight:600,marginBottom:4,color:"#555"},
   lInput:{display:"block",marginBottom:12,padding:"11px 12px",width:"100%",borderRadius:8,border:"1px solid #ddd",boxSizing:"border-box" as const,fontSize:14,background:"#fff",color:"#111"},
