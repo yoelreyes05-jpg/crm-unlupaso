@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import LineasEditor from "@/components/reposteria/Lineas";
 import { api, Aviso, Badge, Btn, Card, Etiqueta, iconBtn, inputBase, RD, T, fecha } from "@/components/reposteria/ui";
+import { documentoHTML, imprimirHTML, type LineaDoc } from "@/components/reposteria/imprimir";
+import { negocioDesdeConfig } from "@/lib/reposteria/negocio";
 import type { RepCliente, RepCotizacion } from "@/types/reposteria";
 
 const ESTADOS = ["borrador", "enviada", "aceptada", "rechazada", "vencida"];
@@ -77,6 +79,32 @@ export default function CotizacionDetalle() {
     } finally { setOcupado(false); }
   }
 
+  async function imprimirCotizacion() {
+    if (!c) return;
+    try {
+      const [items, cfg] = await Promise.all([
+        api<{ data: LineaDoc[] }>(`/cotizacion-items?cotizacion_id=${c.id}`),
+        api<{ data: Record<string, string> }>("/config"),
+      ]);
+      imprimirHTML(documentoHTML(negocioDesdeConfig(cfg.data), {
+        titulo: "COTIZACIÓN",
+        numero: c.numero ?? "",
+        fecha: c.fecha,
+        vencimiento: c.fecha_vencimiento,
+        cliente: cliente ? `${cliente.nombre} ${cliente.apellido}`.trim() : null,
+        telefonoCliente: cliente?.telefono ?? null,
+        rncCliente: cliente?.cedula_rnc ?? null,
+        lineas: items.data ?? [],
+        subtotal: Number(c.subtotal), itbis: Number(c.itbis),
+        descuento: Number(c.descuento), total: Number(c.total),
+        condiciones: c.condiciones,
+        notas: c.notas,
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al preparar la impresión");
+    }
+  }
+
   if (!c) return <div style={{ color: T.suave }}>{error ? <Aviso texto={error} /> : "Cargando…"}</div>;
 
   return (
@@ -120,7 +148,7 @@ export default function CotizacionDetalle() {
             </select>
           </div>
           <Btn onClick={convertirEnFactura} disabled={ocupado}>🧾 Convertir en factura</Btn>
-          <Btn tono="neutro" onClick={() => window.print()}>🖨️ Imprimir</Btn>
+          <Btn tono="neutro" onClick={imprimirCotizacion}>🖨️ Imprimir cotización</Btn>
         </div>
       </Card>
 

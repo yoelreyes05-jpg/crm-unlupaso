@@ -1,8 +1,16 @@
-# Módulo ERP Repostería dentro de UNLUPASO
+# CROW EVENTS — ERP dentro de UNLUPASO
+
+*Endulzando tu paladar* · Tel. **829-404-1644**
 
 Réplica completa del ERP de `erp-reposteria`, montado dentro de este proyecto igual que el POS de cafetería vive dentro del CRM automotriz.
 
-Todo vive en el **mismo proyecto Supabase de UNLUPASO**, pero con prefijo `rep_`: ninguna tabla del módulo referencia una tabla `ul_`, así que los datos de la heladería y los de repostería nunca se mezclan.
+Todo vive en el **mismo proyecto Supabase de UNLUPASO**, pero con prefijo `rep_`: ninguna tabla del módulo referencia una tabla `ul_`, así que los datos de la heladería y los de Crow Events nunca se mezclan.
+
+## Identidad visual
+
+- Logo: `public/crow-events-logo.png` — aparece en el sidebar, el dashboard, los recibos del POS, las facturas y las cotizaciones.
+- Paleta tomada del logo: mármol crema `#f7f3ec`, dorado `#a9812a` / `#c9a227`, bronce `#7a5c2e`, texto marrón `#3a2c1c`.
+- El teléfono `829-404-1644` sale en todos los documentos impresos; se cambia desde **Configuración** o con la variable `NEXT_PUBLIC_CROW_TELEFONO`.
 
 ## 1. Instalar la base de datos
 
@@ -16,15 +24,8 @@ Crea 31 tablas, 8 vistas, 7 enums, los triggers de negocio y datos de arranque (
 
 ## 2. Variables de entorno
 
-Las rutas de API usan la *service role key*. Verifica que `.env.local` tenga:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-```
-
-> ⚠️ El `.env.local` actual tiene la variable escrita como `NEXT_PUBLIC_SUPABASE_ANON_SUPABASE_KEY` y **no** incluye `SUPABASE_SERVICE_ROLE_KEY`. Hay que corregirlo o ni el POS de cafetería ni el de repostería podrán escribir en la base de datos.
+Ver **RAILWAY.md** — ahí está la lista exacta para pegar en Railway y en `.env.local`.
+La única que falta llenar es `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API Keys → Secret keys).
 
 ## 3. Entrar al módulo
 
@@ -33,7 +34,7 @@ npm run dev
 ```
 
 - POS heladería (existente): `/pos`
-- ERP Repostería: `/reposteria`
+- CROW EVENTS: `/reposteria`
 
 Sin login, tal como se pidió. Cuando quieras activarlo, basta con proteger el grupo `/reposteria` en un middleware.
 

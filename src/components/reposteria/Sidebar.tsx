@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { T } from "./ui";
+import { ORO, T } from "./ui";
+import { CROW } from "@/lib/reposteria/negocio";
 
 const GRUPOS: { titulo: string; items: { href: string; label: string; icono: string }[] }[] = [
   {
@@ -30,11 +31,11 @@ const GRUPOS: { titulo: string; items: { href: string; label: string; icono: str
   {
     titulo: "Finanzas",
     items: [
-      { href: "/reposteria/cotizaciones",  label: "Cotizaciones",   icono: "💬" },
-      { href: "/reposteria/facturas",      label: "Facturación",    icono: "🧾" },
-      { href: "/reposteria/cuentas-pagar", label: "Cuentas x pagar",icono: "📤" },
-      { href: "/reposteria/caja",          label: "Caja",           icono: "💵" },
-      { href: "/reposteria/caja-chica",    label: "Caja chica",     icono: "🪙" },
+      { href: "/reposteria/cotizaciones",  label: "Cotizaciones",    icono: "💬" },
+      { href: "/reposteria/facturas",      label: "Facturación",     icono: "🧾" },
+      { href: "/reposteria/cuentas-pagar", label: "Cuentas x pagar", icono: "📤" },
+      { href: "/reposteria/caja",          label: "Caja",            icono: "💵" },
+      { href: "/reposteria/caja-chica",    label: "Caja chica",      icono: "🪙" },
     ],
   },
   {
@@ -46,13 +47,13 @@ const GRUPOS: { titulo: string; items: { href: string; label: string; icono: str
   },
 ];
 
-export default function SidebarReposteria() {
+export default function SidebarCrowEvents() {
   const pathname = usePathname();
   const [abierto, setAbierto] = useState(true);
 
   return (
     <aside style={{
-      width: abierto ? 232 : 62,
+      width: abierto ? 236 : 64,
       background: T.panel,
       borderRight: `1px solid ${T.borde}`,
       display: "flex", flexDirection: "column",
@@ -60,19 +61,25 @@ export default function SidebarReposteria() {
       position: "sticky", top: 0, height: "100vh", overflowY: "auto",
     }}>
       <div style={{
-        padding: "16px 14px", borderBottom: `1px solid ${T.borde}`,
+        padding: abierto ? "16px 14px" : "14px 8px",
+        borderBottom: `1px solid ${T.borde}`,
         display: "flex", alignItems: "center", gap: 10,
+        justifyContent: abierto ? "flex-start" : "center",
+        background: "linear-gradient(180deg, #fdfaf4 0%, #f7f1e3 100%)",
       }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-          background: `linear-gradient(135deg, ${T.acento}, #8b5cf6)`,
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
-        }}>🧁</div>
-        {abierto && (
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 14 }}>Repostería</div>
-            <div style={{ fontSize: 10.5, color: T.suave }}>UNLUPASO · ERP</div>
-          </div>
+        {abierto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={CROW.logo}
+            alt={CROW.nombre}
+            style={{ width: "100%", maxWidth: 190, height: "auto", display: "block" }}
+          />
+        ) : (
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: ORO,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#fff", fontWeight: 900, fontSize: 15,
+          }}>CE</div>
         )}
       </div>
 
@@ -82,7 +89,7 @@ export default function SidebarReposteria() {
             {abierto && (
               <div style={{
                 fontSize: 10, color: T.suave, textTransform: "uppercase",
-                letterSpacing: 0.6, padding: "6px 10px", fontWeight: 700,
+                letterSpacing: 0.7, padding: "6px 10px", fontWeight: 700,
               }}>{g.titulo}</div>
             )}
             {g.items.map((it) => {
@@ -95,8 +102,8 @@ export default function SidebarReposteria() {
                     display: "flex", alignItems: "center", gap: 10,
                     padding: "8px 10px", borderRadius: 9, marginBottom: 2,
                     textDecoration: "none", fontSize: 13.5, fontWeight: activo ? 700 : 500,
-                    color: activo ? "#fff" : T.suave,
-                    background: activo ? T.acento + "33" : "transparent",
+                    color: activo ? T.bronce : T.suave,
+                    background: activo ? "#f5ead1" : "transparent",
                     borderLeft: activo ? `3px solid ${T.acento}` : "3px solid transparent",
                   }}
                 >

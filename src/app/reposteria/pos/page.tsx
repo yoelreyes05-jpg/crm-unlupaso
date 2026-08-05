@@ -1,12 +1,14 @@
 "use client";
 
 /**
- * POS de Repostería — punto de venta rápido.
+ * POS de CROW EVENTS — punto de venta rápido.
  * Vende productos del catálogo y lotes perecederos (descuenta el lote por trigger).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, Aviso, Badge, Btn, Card, Etiqueta, inputBase, RD, T } from "@/components/reposteria/ui";
+import { api, Aviso, Badge, Btn, Card, Etiqueta, inputBase, ORO, RD, T } from "@/components/reposteria/ui";
+import { imprimirHTML, reciboHTML } from "@/components/reposteria/imprimir";
+import { negocioDesdeConfig, type Negocio } from "@/lib/reposteria/negocio";
 import { NCF_TIPOS } from "@/types/reposteria";
 import type { RepLoteAlerta, RepProducto } from "@/types/reposteria";
 
@@ -26,54 +28,13 @@ type Item = {
 const METODOS = [
   { key: "EFECTIVO",      label: "💵 Efectivo",      color: T.ok },
   { key: "TARJETA",       label: "💳 Tarjeta",       color: T.info },
-  { key: "TRANSFERENCIA", label: "📲 Transferencia", color: "#8b5cf6" },
+  { key: "TRANSFERENCIA", label: "📲 Transferencia", color: T.bronce },
 ];
 
-function recibo(negocio: Record<string, string>, items: Item[], total: number, itbis: number, metodo: string, ncf: string | null, ncfTipo: string, numero: string) {
-  const f = new Date().toLocaleString("es-DO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  const lineas = items.map((i) =>
-    `<div class="it"><span>${i.nombre} x${i.qty}</span><span>RD$ ${(i.precio * i.qty).toFixed(2)}</span></div>`
-  ).join("");
-  const desc = NCF_TIPOS.find((n) => n.key === ncfTipo)?.desc ?? ncfTipo;
-
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>${numero}</title><style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',monospace;font-size:13px;max-width:320px;margin:0 auto;padding:16px 14px}
-  .c{text-align:center}.b{font-weight:700}.lg{font-size:16px}.sm{font-size:11px;color:#666}
-  hr{border:none;border-top:1px dashed #ccc;margin:9px 0}
-  .it{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dotted #ddd}
-  .tot{display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:900;border-top:2px solid #111;margin-top:6px}
-  .ncf{background:#111;color:#fff;padding:9px;border-radius:6px;margin:10px 0;text-align:center}
-  </style></head><body>
-  <div class="c"><div class="b lg">${negocio.nombre ?? "Repostería"}</div>
-  <div class="sm">${negocio.slogan ?? ""}</div><div class="sm">Tel: ${negocio.telefono ?? ""}</div>
-  ${negocio.rnc ? `<div class="sm">RNC: ${negocio.rnc}</div>` : ""}</div>
-  <hr/><div class="c sm">${f}<br/>Venta: <strong>${numero}</strong><br/>Comprobante: ${desc}</div><hr/>
-  ${lineas}
-  <div class="it sm"><span>ITBIS</span><span>RD$ ${itbis.toFixed(2)}</span></div>
-  <div class="tot"><span>TOTAL</span><span>RD$ ${total.toFixed(2)}</span></div>
-  <div class="sm" style="display:flex;justify-content:space-between;margin-top:4px"><span>Pago: ${metodo}</span><span>${ncfTipo}</span></div>
-  ${ncf ? `<div class="ncf"><div style="font-size:9px;opacity:.7">COMPROBANTE FISCAL</div><div style="font-size:15px;font-weight:900;letter-spacing:2px">${ncf}</div></div>` : ""}
-  <hr/><div class="c sm">¡Gracias por su compra!</div></body></html>`;
-}
-
-function imprimir(html: string) {
-  const prev = document.getElementById("__rep_print__");
-  if (prev) prev.remove();
-  const f = document.createElement("iframe");
-  f.id = "__rep_print__";
-  f.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:820px;height:1000px;border:none;opacity:0";
-  document.body.appendChild(f);
-  const doc = f.contentDocument;
-  if (!doc) return;
-  doc.open(); doc.write(html); doc.close();
-  f.onload = () => { f.contentWindow?.focus(); f.contentWindow?.print(); };
-}
-
-export default function PosReposteria() {
+export default function PosCrowEvents() {
   const [productos, setProductos] = useState<RepProducto[]>([]);
   const [lotes, setLotes]         = useState<RepLoteAlerta[]>([]);
-  const [negocio, setNegocio]     = useState<Record<string, string>>({});
+  const [negocio, setNegocio]     = useState<Negocio>(negocioDesdeConfig(undefined));
   const [carrito, setCarrito]     = useState<Item[]>([]);
   const [busqueda, setBusqueda]   = useState("");
   const [categoria, setCategoria] = useState("");
@@ -95,7 +56,7 @@ export default function PosReposteria() {
       ]);
       setProductos(p.data ?? []);
       setLotes((l.data ?? []).filter((x) => x.estado === "disponible" && Number(x.cantidad_actual) > 0));
-      setNegocio(c.data ?? {});
+      setNegocio(negocioDesdeConfig(c.data));
       setNcfTipo(c.data?.ncf_default || "B02");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar el catálogo");
@@ -181,7 +142,12 @@ export default function PosReposteria() {
         },
       });
 
-      imprimir(recibo(negocio, carrito, total, itbis, metodo, r.data.ncf, ncfTipo, r.data.numero));
+      const ncfDesc = NCF_TIPOS.find((n) => n.key === ncfTipo)?.desc ?? ncfTipo;
+      imprimirHTML(reciboHTML(
+        negocio,
+        carrito.map((i) => ({ nombre: i.nombre, qty: i.qty, precio: i.precio })),
+        total, itbis, metodo, r.data.ncf, ncfTipo, ncfDesc, r.data.numero,
+      ));
       setOk(`Venta ${r.data.numero} registrada${r.data.ncf ? ` · NCF ${r.data.ncf}` : ""}`);
       setCarrito([]); setCliente({ nombre: "", rnc: "" });
       await cargar();
@@ -195,7 +161,7 @@ export default function PosReposteria() {
       {/* Catálogo */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-          <h1 style={{ fontSize: 24, margin: 0 }}>🧁 POS Repostería</h1>
+          <h1 style={{ fontSize: 24, margin: 0, color: T.bronce }}>🧁 Punto de venta</h1>
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => setVista("productos")} style={tabStyle(vista === "productos")}>Catálogo</button>
             <button onClick={() => setVista("lotes")} style={tabStyle(vista === "lotes")}>Lotes del día ({lotes.length})</button>
@@ -334,6 +300,7 @@ function Fila({ etiqueta, valor }: { etiqueta: string; valor: string }) {
 const tarjetaBtn: React.CSSProperties = {
   background: T.panel, border: `1px solid ${T.borde}`, borderRadius: 12,
   padding: 13, textAlign: "left", cursor: "pointer", color: T.texto,
+  boxShadow: "0 1px 3px rgba(58,44,28,0.06)",
 };
 
 const qtyBtn: React.CSSProperties = {
@@ -343,8 +310,9 @@ const qtyBtn: React.CSSProperties = {
 
 function tabStyle(activo: boolean): React.CSSProperties {
   return {
-    background: activo ? T.acento : T.panel2,
-    color: "#fff", border: `1px solid ${activo ? T.acento : T.borde}`,
+    background: activo ? ORO : T.panel,
+    color: activo ? "#fff" : T.suave,
+    border: `1px solid ${activo ? T.acento : T.borde}`,
     borderRadius: 9, padding: "7px 13px", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
   };
 }

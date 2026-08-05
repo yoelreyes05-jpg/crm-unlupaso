@@ -6,7 +6,9 @@ import LineasEditor from "@/components/reposteria/Lineas";
 import {
   api, Aviso, Badge, Btn, Card, Etiqueta, iconBtn, inputBase, RD, T, Tabla, fecha,
 } from "@/components/reposteria/ui";
-import { METODOS_PAGO } from "@/types/reposteria";
+import { documentoHTML, imprimirHTML, type LineaDoc } from "@/components/reposteria/imprimir";
+import { negocioDesdeConfig } from "@/lib/reposteria/negocio";
+import { METODOS_PAGO, NCF_TIPOS } from "@/types/reposteria";
 import type { RepCliente, RepFactura, RepPago } from "@/types/reposteria";
 
 const tono: Record<string, string> = {
@@ -73,6 +75,34 @@ export default function FacturaDetalle() {
     if (!confirm("¿Eliminar este pago?")) return;
     try { await api(`/pagos/${pid}`, { metodo: "DELETE" }); await cargar(); }
     catch (e) { setError(e instanceof Error ? e.message : "Error al eliminar el pago"); }
+  }
+
+  async function imprimirFactura() {
+    if (!f) return;
+    try {
+      const [items, cfg] = await Promise.all([
+        api<{ data: LineaDoc[] }>(`/factura-items?factura_id=${f.id}`),
+        api<{ data: Record<string, string> }>("/config"),
+      ]);
+      imprimirHTML(documentoHTML(negocioDesdeConfig(cfg.data), {
+        titulo: "FACTURA",
+        numero: f.numero ?? "",
+        fecha: f.fecha_emision,
+        vencimiento: f.fecha_vencimiento,
+        cliente: cliente ? `${cliente.nombre} ${cliente.apellido}`.trim() : null,
+        telefonoCliente: cliente?.telefono ?? null,
+        rncCliente: cliente?.cedula_rnc ?? null,
+        ncf: f.ncf,
+        ncfTipo: NCF_TIPOS.find((n) => n.key === f.ncf_tipo)?.desc ?? f.ncf_tipo,
+        lineas: items.data ?? [],
+        subtotal: Number(f.subtotal), itbis: Number(f.itbis),
+        descuento: Number(f.descuento), total: Number(f.total),
+        pagado: Number(f.monto_pagado), balance: Number(f.balance),
+        notas: f.notas,
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al preparar la impresión");
+    }
   }
 
   async function anular() {
@@ -163,7 +193,7 @@ export default function FacturaDetalle() {
       </Card>
 
       <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-        <Btn tono="neutro" onClick={() => window.print()}>🖨️ Imprimir</Btn>
+        <Btn onClick={imprimirFactura}>🖨️ Imprimir factura</Btn>
         {f.estado !== "anulada" && <Btn tono="err" onClick={anular}>Anular factura</Btn>}
       </div>
     </div>

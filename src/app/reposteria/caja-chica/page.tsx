@@ -38,7 +38,7 @@ export default function CajaChicaPage() {
 
   async function crearFondo() {
     try {
-      await api("/caja-chica", { metodo: "POST", body: { nombre: "Caja Chica Repostería", fondo_inicial: 5000, umbral_reponer: 1000 } });
+      await api("/caja-chica", { metodo: "POST", body: { nombre: "Caja Chica Crow Events", fondo_inicial: 5000, umbral_reponer: 1000 } });
       await cargar();
     } catch (e) { setError(e instanceof Error ? e.message : "Error al crear el fondo"); }
   }

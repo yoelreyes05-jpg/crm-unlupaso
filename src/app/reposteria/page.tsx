@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, Card, RD, T, Badge, fecha } from "@/components/reposteria/ui";
+import { CROW } from "@/lib/reposteria/negocio";
 import type { RepDashboard, RepLoteAlerta, RepEvento } from "@/types/reposteria";
 
-export default function DashboardReposteria() {
+export default function DashboardCrowEvents() {
   const [d, setD]           = useState<RepDashboard | null>(null);
   const [lotes, setLotes]   = useState<RepLoteAlerta[]>([]);
   const [eventos, setEv]    = useState<RepEvento[]>([]);
@@ -44,14 +45,21 @@ export default function DashboardReposteria() {
 
   return (
     <div>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={{ fontSize: 26, margin: 0 }}>{saludo} 👋</h1>
-        <p style={{ color: T.suave, fontSize: 13.5, marginTop: 5 }}>
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        gap: 20, flexWrap: "wrap", marginBottom: 22,
+      }}>
+        <div>
+          <h1 style={{ fontSize: 26, margin: 0, color: T.bronce }}>{saludo} 👋</h1>
+          <p style={{ color: T.suave, fontSize: 13.5, marginTop: 5 }}>
           {new Date().toLocaleDateString("es-DO", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           {d && (d.caja_abierta
             ? <span style={{ marginLeft: 10 }}><Badge texto="Caja abierta" tono="ok" /></span>
             : <span style={{ marginLeft: 10 }}><Badge texto="Caja cerrada" tono="neutro" /></span>)}
-        </p>
+          </p>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={CROW.logo} alt={CROW.nombre} style={{ height: 78, width: "auto" }} />
       </div>
 
       {error && <Card style={{ borderColor: T.err, color: T.err, marginBottom: 18 }}>{error}</Card>}

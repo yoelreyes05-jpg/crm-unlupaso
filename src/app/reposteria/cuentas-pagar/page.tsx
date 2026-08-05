@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  api, Aviso, Badge, Btn, CrudPage, Etiqueta, Modal, RD, fecha, inputBase,
+  api, Aviso, Badge, Btn, CrudPage, Etiqueta, Modal, RD, T, fecha, inputBase,
   type Campo, type Columna,
 } from "@/components/reposteria/ui";
 import { METODOS_PAGO } from "@/types/reposteria";
@@ -84,7 +84,7 @@ export default function CuentasPagarPage() {
         {error && <Aviso texto={error} />}
         <div style={{ marginBottom: 14, fontSize: 13.5 }}>
           <strong>{String(cuenta?.descripcion ?? "")}</strong>
-          <div style={{ color: "#94a3b8", marginTop: 4 }}>Balance actual: {RD(Number(cuenta?.balance ?? 0))}</div>
+          <div style={{ color: T.suave, marginTop: 4 }}>Balance actual: {RD(Number(cuenta?.balance ?? 0))}</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>

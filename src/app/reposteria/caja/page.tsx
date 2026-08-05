@@ -38,7 +38,11 @@ export default function CajaPage() {
     try {
       await api("/caja", {
         metodo: "POST",
-        body: { monto_apertura: Number(apertura.monto || 0), abierto_por: apertura.usuario || null },
+        body: {
+          nombre: "Caja Crow Events",
+          monto_apertura: Number(apertura.monto || 0),
+          abierto_por: apertura.usuario || null,
+        },
       });
       setApertura({ monto: "", usuario: "" }); setError("");
       await cargar();

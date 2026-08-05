@@ -7,13 +7,13 @@ import { NCF_TIPOS } from "@/types/reposteria";
 const CAMPOS: { clave: string; label: string; tipo?: string; ayuda?: string }[] = [
   { clave: "nombre",       label: "Nombre del negocio" },
   { clave: "slogan",       label: "Slogan" },
-  { clave: "telefono",     label: "Teléfono" },
+  { clave: "telefono",     label: "Teléfono", ayuda: "Aparece en facturas, cotizaciones y recibos" },
   { clave: "rnc",          label: "RNC" },
   { clave: "direccion",    label: "Dirección" },
   { clave: "moneda",       label: "Moneda", ayuda: "Código ISO, ej. DOP" },
   { clave: "itbis_pct",    label: "ITBIS %", tipo: "number", ayuda: "Se aplica a eventos, cotizaciones y facturas" },
   { clave: "deposito_pct", label: "Depósito sugerido %", tipo: "number" },
-  { clave: "logo_url",     label: "URL del logo" },
+  { clave: "logo_url",     label: "URL del logo", ayuda: "Por defecto /crow-events-logo.png" },
 ];
 
 export default function ConfiguracionPage() {
@@ -40,7 +40,7 @@ export default function ConfiguracionPage() {
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <h1 style={{ fontSize: 24, margin: "0 0 18px" }}>⚙️ Configuración de repostería</h1>
+      <h1 style={{ fontSize: 24, margin: "0 0 18px", color: T.bronce }}>⚙️ Configuración de CROW EVENTS</h1>
 
       {error && <Aviso texto={error} />}
       {ok && <Aviso texto={ok} tono="ok" />}
@@ -80,10 +80,10 @@ export default function ConfiguracionPage() {
       <Card style={{ marginTop: 18 }}>
         <strong style={{ display: "block", marginBottom: 10 }}>Aislamiento de datos</strong>
         <p style={{ fontSize: 13.5, color: T.suave, lineHeight: 1.65, margin: 0 }}>
-          Todas las tablas de este módulo usan el prefijo <code style={{ color: T.acento2 }}>rep_</code> y
+          Todas las tablas de CROW EVENTS usan el prefijo <code style={{ color: T.acento }}>rep_</code> y
           viven en el mismo proyecto Supabase que el POS de UNLUPASO, pero sin ninguna relación con las
-          tablas <code style={{ color: T.acento2 }}>ul_</code>. Las ventas, el inventario, la caja y la
-          facturación de repostería son completamente independientes de las de la heladería.
+          tablas <code style={{ color: T.acento }}>ul_</code>. Las ventas, el inventario, la caja y la
+          facturación de Crow Events son completamente independientes de las de la heladería.
         </p>
       </Card>
     </div>

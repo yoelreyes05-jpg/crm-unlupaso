@@ -846,7 +846,7 @@ CREATE TRIGGER trg_rep_cxp_pagos
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS rep_caja_sesiones (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  nombre             TEXT NOT NULL DEFAULT 'Caja Repostería',
+  nombre             TEXT NOT NULL DEFAULT 'Caja Crow Events',
   fecha_apertura     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   fecha_cierre       TIMESTAMPTZ,
   monto_apertura     NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -916,7 +916,7 @@ CREATE TRIGGER trg_rep_caja_mov
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS rep_caja_chica (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  nombre         TEXT NOT NULL DEFAULT 'Caja Chica Repostería',
+  nombre         TEXT NOT NULL DEFAULT 'Caja Chica Crow Events',
   fondo_inicial  NUMERIC(12,2) NOT NULL DEFAULT 0,
   saldo_actual   NUMERIC(12,2) NOT NULL DEFAULT 0,
   umbral_reponer NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -1369,20 +1369,26 @@ CREATE POLICY "rep_productos_anon_select" ON rep_productos
 -- SEED — configuración y datos base
 -- ============================================================================
 INSERT INTO rep_config (clave, valor, descripcion) VALUES
-  ('nombre',      'Repostería UNLUPASO', 'Nombre del área de repostería'),
-  ('slogan',      'Un lugar para soñar', 'Slogan'),
-  ('telefono',    '829-644-7991',        'Teléfono'),
-  ('rnc',         '',                    'RNC'),
-  ('direccion',   '',                    'Dirección'),
-  ('moneda',      'DOP',                 'Moneda ISO 4217'),
-  ('itbis_pct',   '18',                  'Porcentaje ITBIS por defecto'),
-  ('ncf_default', 'B02',                 'Tipo NCF por defecto'),
-  ('deposito_pct','50',                  'Porcentaje de depósito para eventos'),
-  ('logo_url',    '',                    'URL del logo')
+  ('nombre',      'CROW EVENTS',           'Nombre del negocio'),
+  ('slogan',      'Endulzando tu paladar', 'Slogan'),
+  ('telefono',    '829-404-1644',          'Teléfono (aparece en facturas y recibos)'),
+  ('rnc',         '',                      'RNC'),
+  ('direccion',   '',                      'Dirección'),
+  ('moneda',      'DOP',                   'Moneda ISO 4217'),
+  ('itbis_pct',   '18',                    'Porcentaje ITBIS por defecto'),
+  ('ncf_default', 'B02',                   'Tipo NCF por defecto'),
+  ('deposito_pct','50',                    'Porcentaje de depósito para eventos'),
+  ('logo_url',    '/crow-events-logo.png', 'Logo usado en pantallas y documentos')
 ON CONFLICT (clave) DO NOTHING;
 
+-- Si el schema ya se había instalado con otros datos, refresca la marca:
+UPDATE rep_config SET valor = 'CROW EVENTS',           updated_at = NOW() WHERE clave = 'nombre'   AND valor <> 'CROW EVENTS';
+UPDATE rep_config SET valor = 'Endulzando tu paladar', updated_at = NOW() WHERE clave = 'slogan'   AND valor <> 'Endulzando tu paladar';
+UPDATE rep_config SET valor = '829-404-1644',          updated_at = NOW() WHERE clave = 'telefono' AND valor <> '829-404-1644';
+UPDATE rep_config SET valor = '/crow-events-logo.png', updated_at = NOW() WHERE clave = 'logo_url' AND COALESCE(valor,'') = '';
+
 INSERT INTO rep_caja_chica (nombre, fondo_inicial, saldo_actual, umbral_reponer)
-SELECT 'Caja Chica Repostería', 5000, 5000, 1000
+SELECT 'Caja Chica Crow Events', 5000, 5000, 1000
 WHERE NOT EXISTS (SELECT 1 FROM rep_caja_chica);
 
 -- Los seeds solo corren la primera vez: si la tabla ya tiene datos, se omiten.

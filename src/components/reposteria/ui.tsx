@@ -1,27 +1,31 @@
 "use client";
 
 /**
- * Kit de UI del módulo Repostería.
- * Estilo oscuro en línea con el POS de UNLUPASO (sin Tailwind).
+ * Kit de UI de CROW EVENTS.
+ * Paleta tomada del logo: mármol crema, dorado y marrón (sin Tailwind).
  */
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
-// ─── Tema ─────────────────────────────────────────────────────────────────────
+// ─── Tema — colores del logo CROW EVENTS ──────────────────────────────────────
 export const T = {
-  bg:      "#0f172a",
-  panel:   "#1e293b",
-  panel2:  "#172033",
-  borde:   "#334155",
-  texto:   "#e2e8f0",
-  suave:   "#94a3b8",
-  acento:  "#ec4899",
-  acento2: "#f472b6",
-  ok:      "#10b981",
-  warn:    "#f59e0b",
-  err:     "#ef4444",
-  info:    "#3b82f6",
+  bg:      "#f7f3ec",  // mármol crema
+  panel:   "#ffffff",
+  panel2:  "#faf6ef",  // crema suave para inputs
+  borde:   "#e6dcc8",
+  texto:   "#3a2c1c",  // marrón oscuro del texto del logo
+  suave:   "#8a7758",  // marrón claro
+  acento:  "#a9812a",  // dorado profundo
+  acento2: "#c9a227",  // dorado brillante
+  bronce:  "#7a5c2e",
+  ok:      "#2f7d5c",
+  warn:    "#c07d13",
+  err:     "#b03a34",
+  info:    "#4a6b96",
 };
+
+/** Degradado dorado del logo, para acentos y cabeceras. */
+export const ORO = "linear-gradient(135deg, #d9b451 0%, #a9812a 45%, #7a5c2e 100%)";
 
 export const RD = (n: number | null | undefined) =>
   "RD$ " + Number(n ?? 0).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -55,7 +59,7 @@ export function Card({ children, style }: { children: ReactNode; style?: CSSProp
   return (
     <div style={{
       background: T.panel, border: `1px solid ${T.borde}`, borderRadius: 14,
-      padding: 18, ...style,
+      padding: 18, boxShadow: "0 1px 3px rgba(58,44,28,0.06)", ...style,
     }}>{children}</div>
   );
 }
@@ -68,19 +72,22 @@ export function Btn({
   disabled?: boolean; tipo?: "button" | "submit"; style?: CSSProperties;
 }) {
   const colores: Record<string, string> = {
-    acento: T.acento, neutro: "#475569", ok: T.ok, err: T.err, warn: T.warn,
+    acento: ORO, neutro: "#efe7d8", ok: T.ok, err: T.err, warn: T.warn,
   };
+  const fondo = colores[tono] ?? ORO;
   return (
     <button
       type={tipo}
       onClick={onClick}
       disabled={disabled}
       style={{
-        background: disabled ? "#334155" : colores[tono],
-        color: "#fff", border: "none", borderRadius: 10,
+        background: disabled ? "#e0d7c6" : fondo,
+        color: disabled ? T.suave : tono === "neutro" ? T.texto : "#fff",
+        border: tono === "neutro" ? `1px solid ${T.borde}` : "none",
+        borderRadius: 10,
         padding: "10px 16px", fontWeight: 700, fontSize: 14,
         cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.6 : 1, ...style,
+        opacity: disabled ? 0.75 : 1, ...style,
       }}
     >{children}</button>
   );
@@ -98,12 +105,12 @@ export function Etiqueta({ children }: { children: ReactNode }) {
 
 export function Badge({ texto, tono = "neutro" }: { texto: string; tono?: string }) {
   const map: Record<string, string> = {
-    ok: T.ok, err: T.err, warn: T.warn, info: T.info, acento: T.acento, neutro: "#64748b",
+    ok: T.ok, err: T.err, warn: T.warn, info: T.info, acento: T.acento, neutro: T.suave,
   };
   const c = map[tono] ?? map.neutro;
   return (
     <span style={{
-      background: c + "22", color: c, border: `1px solid ${c}55`,
+      background: c + "1f", color: c, border: `1px solid ${c}55`,
       borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 700,
       whiteSpace: "nowrap", textTransform: "capitalize",
     }}>{texto}</span>
@@ -118,7 +125,7 @@ export function Modal({
     <div
       onClick={onCerrar}
       style={{
-        position: "fixed", inset: 0, background: "rgba(2,6,23,0.75)",
+        position: "fixed", inset: 0, background: "rgba(58,44,28,0.45)",
         display: "flex", alignItems: "flex-start", justifyContent: "center",
         padding: 24, zIndex: 60, overflowY: "auto",
       }}
@@ -126,6 +133,7 @@ export function Modal({
       <div onClick={(e) => e.stopPropagation()} style={{
         background: T.panel, border: `1px solid ${T.borde}`, borderRadius: 16,
         width: "100%", maxWidth: ancho, marginTop: 30,
+        boxShadow: "0 12px 40px rgba(58,44,28,0.22)",
       }}>
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -487,6 +495,7 @@ export function CrudPage({
 export const iconBtn: CSSProperties = {
   background: T.panel2, border: `1px solid ${T.borde}`, borderRadius: 8,
   padding: "5px 9px", cursor: "pointer", fontSize: 13, lineHeight: 1,
+  color: T.texto,
 };
 
 export { inputBase };
