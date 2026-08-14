@@ -107,8 +107,22 @@ export async function api<T = unknown>(
     body: opciones.body ? JSON.stringify(opciones.body) : undefined,
     cache: "no-store",
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.error ?? `Error ${res.status}`);
+
+  const texto = await res.text();
+  let json: { error?: string } = {};
+  try { json = texto ? JSON.parse(texto) : {}; } catch { /* la respuesta no era JSON */ }
+
+  if (!res.ok) {
+    // Un 404 sin cuerpo JSON significa que el archivo de esa ruta no está
+    // en el despliegue: es un problema de subida, no de datos.
+    if (res.status === 404 && !json.error) {
+      throw new Error(
+        `No existe la ruta ${BASE}${ruta} en este despliegue. ` +
+        `Falta subir el archivo src/app/api${BASE}${ruta.split("?")[0]}/route.ts y volver a desplegar.`
+      );
+    }
+    throw new Error(json.error ?? `Error ${res.status}`);
+  }
   return json as T;
 }
 

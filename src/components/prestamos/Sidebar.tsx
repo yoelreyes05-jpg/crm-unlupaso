@@ -112,6 +112,44 @@ export default function SidebarPrestamos() {
         ))}
       </nav>
 
+      {/* Salto al otro sistema del mismo dueño */}
+      <div style={{ padding: "10px 8px", borderTop: `1px solid ${BORDE}` }}>
+        {abierto && (
+          <div style={{
+            fontSize: 10, color: SUAVE, textTransform: "uppercase",
+            letterSpacing: 0.7, padding: "2px 10px 7px", fontWeight: 700, opacity: 0.7,
+          }}>Mis sistemas</div>
+        )}
+        <Link
+          href="/tienda"
+          title="Ir a MAXMATT SHOP"
+          style={{
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "9px 10px", borderRadius: 9,
+            textDecoration: "none", fontSize: 13.5, fontWeight: 600,
+            color: "#d9ccff",
+            background: "#2c2550",
+            border: "1px solid #453b7a",
+            justifyContent: abierto ? "flex-start" : "center",
+          }}
+        >
+          <span style={{
+            width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+            background: "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#fff", fontWeight: 900, fontSize: 9.5,
+          }}>MX</span>
+          {abierto && (
+            <span style={{ whiteSpace: "nowrap", minWidth: 0 }}>
+              MAXMATT SHOP
+              <span style={{ display: "block", fontSize: 10, opacity: 0.65, fontWeight: 400 }}>
+                Ir a la tienda →
+              </span>
+            </span>
+          )}
+        </Link>
+      </div>
+
       <button
         onClick={() => setAbierto((v) => !v)}
         style={{

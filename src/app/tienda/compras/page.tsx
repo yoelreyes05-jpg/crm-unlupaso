@@ -34,10 +34,12 @@ export default function ComprasPage() {
 
   const cargar = useCallback(async () => {
     try {
+      // Los catálogos son secundarios: si uno falla, la lista de compras
+      // igual se ve. Antes un solo fallo tumbaba toda la pantalla.
       const [c, p, pr, cfg] = await Promise.all([
         api<{ data: Compra[] }>("/compras?limit=500"),
-        api<{ data: ProductoOpcion[] }>("/productos?activo=true&limit=2000"),
-        api<{ data: Proveedor[] }>("/proveedores?activo=true&limit=500"),
+        api<{ data: ProductoOpcion[] }>("/productos?activo=true&limit=2000").catch(() => ({ data: [] })),
+        api<{ data: Proveedor[] }>("/proveedores?activo=true&limit=500").catch(() => ({ data: [] })),
         api<{ data: { simbolo_moneda: string } }>("/config").catch(() => null),
       ]);
       setLista(c.data ?? []);

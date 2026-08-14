@@ -42,8 +42,15 @@ export function pick(body: Record<string, unknown>, fields: string[]) {
 }
 
 export function fail(err: unknown, fallback: string, status = 500) {
-  const msg = err instanceof Error ? err.message : fallback;
-  return NextResponse.json({ error: msg }, { status });
+  // Los errores de Supabase llegan como objetos planos, no como instancias de
+  // Error: sin esto se perdía el mensaje real y solo se veía el texto genérico.
+  const e = err as { message?: string; details?: string; hint?: string; code?: string } | null;
+  const msg = err instanceof Error ? err.message : e?.message || fallback;
+  const extra = e?.details || e?.hint;
+  return NextResponse.json(
+    { error: extra ? `${msg} — ${extra}` : msg, code: e?.code },
+    { status }
+  );
 }
 
 // ─── LISTAR ───────────────────────────────────────────────────────────────────

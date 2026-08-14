@@ -54,7 +54,7 @@ function NuevaVenta() {
       try {
         const [p, c, cfg] = await Promise.all([
           api<{ data: ProductoOpcion[] }>("/productos?activo=true&limit=2000"),
-          api<{ data: ClienteOpcion[] }>("/clientes?activo=true&limit=2000"),
+          api<{ data: ClienteOpcion[] }>("/clientes?activo=true&limit=2000").catch(() => ({ data: [] })),
           api<{ data: { simbolo_moneda: string; dias_credito: number } }>("/config").catch(() => null),
         ]);
         setProductos(p.data ?? []);
