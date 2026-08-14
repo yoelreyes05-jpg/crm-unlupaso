@@ -60,14 +60,21 @@ export interface PrInversionista {
 
 /** Vista pr_v_inversionistas */
 export interface PrInversionistaVista extends PrInversionista {
+  // Capital
   aportes: number;
-  retiros: number;
+  retiros: number;            // solo retiros de capital
+  ajustes: number;
+  capital_aportado: number;   // aportes − retiros + ajustes
+  capital_en_calle: number;   // saldo de capital de sus préstamos activos
+  capital_disponible: number; // capital_aportado − capital_en_calle
+  // Cartera
   capital_colocado: number;
   prestamos_activos: number;
   capital_recuperado: number;
+  // Ganancia
   interes_ganado: number;
-  capital_disponible: number;
-  capital_en_calle: number;
+  ganancia_retirada: number;
+  ganancia_por_pagar: number; // interes_ganado − ganancia_retirada
 }
 
 export interface PrMovimientoInversionista {

@@ -480,6 +480,7 @@ export function Tabla({
 export function CrudPage({
   titulo, icono, ruta, campos, columnas, buscar = true,
   filtros, extraAcciones, onFila, textoNuevo, subtitulo, encabezado, filaRoja,
+  encabezadoFormulario,
 }: {
   titulo: string;
   icono: string;
@@ -494,6 +495,9 @@ export function CrudPage({
   subtitulo?: ReactNode;
   encabezado?: (filas: Record<string, unknown>[]) => ReactNode;
   filaRoja?: (fila: Record<string, unknown>) => boolean;
+  /** Bloque que se dibuja arriba del formulario. Recibe una función para
+   *  rellenar campos — la usa el selector de contactos del teléfono. */
+  encabezadoFormulario?: (llenar: (valores: Record<string, unknown>) => void) => ReactNode;
 }) {
   const [filas, setFilas]         = useState<Record<string, unknown>[]>([]);
   const [cargando, setCargando]   = useState(true);
@@ -642,6 +646,16 @@ export function CrudPage({
         }
       >
         {error && <Aviso texto={error} />}
+        {encabezadoFormulario?.((nuevos) =>
+          setValores((s) => {
+            const out = { ...s };
+            // solo rellena lo que venga con valor; no pisa lo que ya escribiste
+            for (const [k, v] of Object.entries(nuevos)) {
+              if (v !== undefined && v !== null && v !== "") out[k] = v;
+            }
+            return out;
+          })
+        )}
         <Formulario
           campos={campos}
           valores={valores}

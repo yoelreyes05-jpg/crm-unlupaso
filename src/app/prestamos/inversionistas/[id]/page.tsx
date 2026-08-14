@@ -69,11 +69,16 @@ export default function DetalleInversionista() {
         acciones={<Btn tono="neutro" onClick={() => window.print()}>Imprimir estado</Btn>}
       />
 
-      <div style={{ ...rejilla(215), marginBottom: 18 }}>
-        <Kpi titulo="Aportes" valor={RD(inv.aportes, simbolo)} detalle={`Retiros: ${RD(inv.retiros, simbolo)}`} />
-        <Kpi titulo="Capital en la calle" valor={RD(inv.capital_en_calle, simbolo)} tono="acento" />
-        <Kpi titulo="Capital disponible" valor={RD(inv.capital_disponible, simbolo)} />
-        <Kpi titulo="Interés ganado" valor={RD(inv.interes_ganado, simbolo)} tono="ok" />
+      <div style={{ ...rejilla(205), marginBottom: 18 }}>
+        <Kpi titulo="Capital aportado" valor={RD(inv.capital_aportado, simbolo)}
+             detalle={`Aportes ${RD(inv.aportes, simbolo)} · retiros ${RD(inv.retiros, simbolo)}`} />
+        <Kpi titulo="Capital en la calle" valor={RD(inv.capital_en_calle, simbolo)} tono="acento"
+             detalle={`${inv.prestamos_activos} préstamo(s) activo(s)`} />
+        <Kpi titulo="Capital disponible" valor={RD(inv.capital_disponible, simbolo)}
+             tono={Number(inv.capital_disponible) < 0 ? "err" : "neutro"}
+             detalle="Listo para colocar" />
+        <Kpi titulo="Ganancia por pagarle" valor={RD(inv.ganancia_por_pagar, simbolo)} tono="ok"
+             detalle={`Ganado ${RD(inv.interes_ganado, simbolo)} · retirado ${RD(inv.ganancia_retirada, simbolo)}`} />
       </div>
 
       <Seccion titulo="Ganancias por mes" style={{ marginBottom: 18, padding: 0 }}>

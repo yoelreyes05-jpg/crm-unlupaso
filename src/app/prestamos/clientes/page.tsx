@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Badge, CrudPage, RD, T, fecha, type Campo, type Columna } from "@/components/prestamos/ui";
+import { BarraContactos } from "@/components/prestamos/SelectorContacto";
 
 const campos: Campo[] = [
   { name: "nombre",          label: "Nombre completo", requerido: true, ancho: 2 },
@@ -47,6 +48,30 @@ export default function ClientesPrestamos() {
       filtros={[
         { name: "activo", label: "Estado", opciones: [{ value: "true", label: "Activos" }, { value: "false", label: "Inactivos" }] },
       ]}
+      encabezadoFormulario={(llenar) => (
+        <BarraContactos
+          botones={[
+            {
+              etiqueta: "Cliente",
+              onElegir: (c) => llenar({
+                nombre: c.nombre,
+                telefono: c.telefono,
+                telefono2: c.telefono2,
+                email: c.email,
+                direccion: c.direccion,
+              }),
+            },
+            {
+              etiqueta: "Referencia 1",
+              onElegir: (c) => llenar({ ref1_nombre: c.nombre, ref1_telefono: c.telefono }),
+            },
+            {
+              etiqueta: "Referencia 2",
+              onElegir: (c) => llenar({ ref2_nombre: c.nombre, ref2_telefono: c.telefono }),
+            },
+          ]}
+        />
+      )}
       extraAcciones={(f) => (
         <Link
           href={`/prestamos/creditos/nuevo?cliente=${f.id}`}

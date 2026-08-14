@@ -6,6 +6,7 @@ import {
   Aviso, Badge, Btn, CrudPage, Etiqueta, Kpi, Modal, PCT, RD, T,
   api, hoyISO, inputBase, rejilla, type Campo, type Columna,
 } from "@/components/prestamos/ui";
+import { BarraContactos } from "@/components/prestamos/SelectorContacto";
 
 const campos: Campo[] = [
   { name: "nombre",    label: "Nombre completo", requerido: true, ancho: 2 },
@@ -47,11 +48,24 @@ const columnas: Columna[] = [
     fmt: (v, f) => v === "tasa"
       ? <Badge texto={`${PCT(f.tasa_default as number, 1)} mensual`} tono="acento" />
       : <Badge texto={`${PCT(f.porcentaje_default as number, 1)} del interés`} tono="info" /> },
-  { name: "aportes",            label: "Aportes",       alinear: "right", fmt: (v) => RD(v as number) },
-  { name: "capital_en_calle",   label: "En la calle",   alinear: "right", fmt: (v) => <strong>{RD(v as number)}</strong> },
-  { name: "capital_disponible", label: "Disponible",    alinear: "right", fmt: (v) => RD(v as number) },
+  { name: "capital_aportado", label: "Capital aportado", alinear: "right",
+    fmt: (v, f) => (
+      <div>
+        <strong>{RD(v as number)}</strong>
+        {Number(f.retiros) > 0 && (
+          <div style={{ fontSize: 10.5, color: T.suave }}>retiros: {RD(f.retiros as number)}</div>
+        )}
+      </div>
+    ) },
+  { name: "capital_en_calle",   label: "En la calle", alinear: "right", fmt: (v) => RD(v as number) },
+  { name: "capital_disponible", label: "Disponible",  alinear: "right",
+    fmt: (v) => (
+      <strong style={{ color: Number(v) < 0 ? T.err : T.texto }}>{RD(v as number)}</strong>
+    ) },
   { name: "interes_ganado",     label: "Interés ganado", alinear: "right",
-    fmt: (v) => <strong style={{ color: T.ok }}>{RD(v as number)}</strong> },
+    fmt: (v) => <span style={{ color: T.ok }}>{RD(v as number)}</span> },
+  { name: "ganancia_por_pagar", label: "Por pagarle", alinear: "right",
+    fmt: (v) => <strong style={{ color: Number(v) > 0 ? T.ok : T.suave }}>{RD(v as number)}</strong> },
   { name: "prestamos_activos",  label: "Préstamos", alinear: "right" },
 ];
 
@@ -99,21 +113,41 @@ export default function InversionistasPage() {
         filtros={[
           { name: "activo", label: "Estado", opciones: [{ value: "true", label: "Activos" }, { value: "false", label: "Inactivos" }] },
         ]}
+        encabezadoFormulario={(llenar) => (
+          <BarraContactos
+            botones={[
+              {
+                etiqueta: "Inversionista",
+                onElegir: (c) => llenar({
+                  nombre: c.nombre,
+                  telefono: c.telefono,
+                  email: c.email,
+                  direccion: c.direccion,
+                }),
+              },
+            ]}
+          />
+        )}
         encabezado={(filas) => {
           const t = filas.reduce(
-            (a: { calle: number; ganado: number; disp: number }, i) => ({
-              calle: a.calle + Number(i.capital_en_calle ?? 0),
-              ganado: a.ganado + Number(i.interes_ganado ?? 0),
-              disp: a.disp + Number(i.capital_disponible ?? 0),
+            (a: { aportado: number; calle: number; disp: number; porPagar: number }, i) => ({
+              aportado: a.aportado + Number(i.capital_aportado ?? 0),
+              calle:    a.calle    + Number(i.capital_en_calle ?? 0),
+              disp:     a.disp     + Number(i.capital_disponible ?? 0),
+              porPagar: a.porPagar + Number(i.ganancia_por_pagar ?? 0),
             }),
-            { calle: 0, ganado: 0, disp: 0 }
+            { aportado: 0, calle: 0, disp: 0, porPagar: 0 }
           );
           return (
-            <div style={rejilla(215)}>
-              <Kpi titulo="Capital en la calle" valor={RD(t.calle)} tono="acento" />
-              <Kpi titulo="Interés ganado (total)" valor={RD(t.ganado)} tono="ok" />
+            <div style={rejilla(205)}>
+              <Kpi titulo="Capital aportado" valor={RD(t.aportado)}
+                   detalle="Lo que han puesto, menos retiros" />
+              <Kpi titulo="Capital en la calle" valor={RD(t.calle)} tono="acento"
+                   detalle="Saldo por cobrar de sus préstamos" />
               <Kpi titulo="Capital disponible" valor={RD(t.disp)}
-                   detalle="Aportes − retiros − colocado + recuperado" />
+                   detalle="Listo para colocar" tono={t.disp < 0 ? "err" : "neutro"} />
+              <Kpi titulo="Ganancia por pagarles" valor={RD(t.porPagar)} tono="ok"
+                   detalle="Interés ganado que aún no han retirado" />
             </div>
           );
         }}
