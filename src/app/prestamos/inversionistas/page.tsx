@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Aviso, Badge, Btn, CrudPage, Etiqueta, Kpi, Modal, PCT, RD, T,
-  api, hoyISO, inputBase, rejilla, type Campo, type Columna,
+  Badge, CrudPage, Kpi, PCT, RD, T,
+  rejilla, type Campo, type Columna,
 } from "@/components/prestamos/ui";
 import { BarraContactos } from "@/components/prestamos/SelectorContacto";
+import { CajaInversionista } from "@/components/prestamos/CajaInversionista";
+import type { PrInversionistaVista } from "@/types/prestamos";
 
 const campos: Campo[] = [
   { name: "nombre",    label: "Nombre completo", requerido: true, ancho: 2 },
@@ -70,35 +72,8 @@ const columnas: Columna[] = [
 ];
 
 export default function InversionistasPage() {
-  const [mov, setMov] = useState<Record<string, unknown> | null>(null);
-  const [form, setForm] = useState({ tipo: "aporte", monto: "", fecha: hoyISO(), descripcion: "" });
-  const [error, setError] = useState("");
-  const [guardando, setGuardando] = useState(false);
+  const [caja, setCaja] = useState<PrInversionistaVista | null>(null);
   const [recarga, setRecarga] = useState<(() => void) | null>(null);
-
-  async function guardarMov() {
-    if (!mov) return;
-    setGuardando(true); setError("");
-    try {
-      await api("/movimientos", {
-        metodo: "POST",
-        body: {
-          inversionista_id: mov.id,
-          tipo: form.tipo,
-          monto: Number(form.monto),
-          fecha: form.fecha,
-          descripcion: form.descripcion || null,
-        },
-      });
-      setMov(null);
-      setForm({ tipo: "aporte", monto: "", fecha: hoyISO(), descripcion: "" });
-      recarga?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo registrar");
-    } finally {
-      setGuardando(false);
-    }
-  }
 
   return (
     <>
@@ -153,56 +128,22 @@ export default function InversionistasPage() {
         }}
         extraAcciones={(f, recargar) => (
           <button
-            onClick={() => { setMov(f); setRecarga(() => recargar); }}
+            onClick={() => {
+              setCaja(f as unknown as PrInversionistaVista);
+              setRecarga(() => recargar);
+            }}
             style={{ background: "transparent", border: "none", color: T.acento, cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}
           >
-            Movimiento
+            Caja
           </button>
         )}
       />
 
-      <Modal
-        abierto={!!mov}
-        titulo={`Movimiento de caja · ${mov?.nombre ?? ""}`}
-        onCerrar={() => setMov(null)}
-        ancho={480}
-        pie={
-          <>
-            <Btn tono="neutro" onClick={() => setMov(null)}>Cancelar</Btn>
-            <Btn onClick={guardarMov} disabled={guardando || !Number(form.monto)}>
-              {guardando ? "Guardando…" : "Registrar"}
-            </Btn>
-          </>
-        }
-      >
-        {error && <Aviso texto={error} />}
-        <div style={{ display: "grid", gap: 13 }}>
-          <div>
-            <Etiqueta>Tipo</Etiqueta>
-            <select style={inputBase} value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
-              <option value="aporte">Aporte de capital</option>
-              <option value="retiro">Retiro de capital</option>
-              <option value="retiro_ganancia">Retiro de ganancias</option>
-              <option value="ajuste">Ajuste</option>
-            </select>
-          </div>
-          <div>
-            <Etiqueta>Monto</Etiqueta>
-            <input type="number" step="0.01" style={inputBase} value={form.monto}
-                   onChange={(e) => setForm({ ...form, monto: e.target.value })} />
-          </div>
-          <div>
-            <Etiqueta>Fecha</Etiqueta>
-            <input type="date" style={inputBase} value={form.fecha}
-                   onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
-          </div>
-          <div>
-            <Etiqueta>Descripción</Etiqueta>
-            <input style={inputBase} value={form.descripcion}
-                   onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
-          </div>
-        </div>
-      </Modal>
+      <CajaInversionista
+        inversionista={caja}
+        onCerrar={() => setCaja(null)}
+        onCambio={() => recarga?.()}
+      />
     </>
   );
 }
