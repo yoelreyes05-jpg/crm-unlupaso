@@ -4,8 +4,8 @@
  */
 
 export const PRESTAMOS_NEGOCIO = {
-  nombre:    process.env.NEXT_PUBLIC_PRESTAMOS_NOMBRE    ?? "Préstamos",
-  slogan:    process.env.NEXT_PUBLIC_PRESTAMOS_SLOGAN    ?? "Gestión de cartera",
+  nombre:    process.env.NEXT_PUBLIC_PRESTAMOS_NOMBRE    ?? "CGSSOLUTIONS",
+  slogan:    process.env.NEXT_PUBLIC_PRESTAMOS_SLOGAN    ?? "Préstamos y gestión de cartera",
   telefono:  process.env.NEXT_PUBLIC_PRESTAMOS_TELEFONO  ?? "",
   rnc:       process.env.NEXT_PUBLIC_PRESTAMOS_RNC       ?? "",
   direccion: process.env.NEXT_PUBLIC_PRESTAMOS_DIRECCION ?? "",

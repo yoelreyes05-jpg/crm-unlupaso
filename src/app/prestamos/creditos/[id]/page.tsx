@@ -28,7 +28,7 @@ export default function DetallePrestamo() {
   const [cfg, setCfg] = useState<PrConfig | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
-  const [ok, setOk] = useState("");
+  const [ok, setOk] = useState<React.ReactNode>("");
   const [procesando, setProcesando] = useState(false);
 
   const [modalPago, setModalPago] = useState<PrCuotaVista | null>(null);
@@ -241,8 +241,15 @@ export default function DetallePrestamo() {
                 { name: "monto", label: "Total", alinear: "right", fmt: (v) => <strong>{RD(v as number, s)}</strong> },
               ]}
               filas={d.pagos as unknown as Record<string, unknown>[]}
-              acciones={(f) =>
-                f.anulado ? <Badge texto="anulado" tono="err" /> : (
+              acciones={(f) => (
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+                  <Link
+                    href={`/prestamos/creditos/${id}/recibo/${f.id}`}
+                    style={{ color: T.acento, fontSize: 12.5, fontWeight: 700, textDecoration: "none" }}
+                  >
+                    Recibo
+                  </Link>
+                  {f.anulado ? <Badge texto="anulado" tono="err" /> : (
                   <button
                     onClick={async () => {
                       if (!confirm("¿Anular este pago? Se revertirá en las cuotas y en la contabilidad.")) return;
@@ -258,8 +265,9 @@ export default function DetallePrestamo() {
                     disabled={procesando}
                     style={{ background: "transparent", border: "none", color: T.err, cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}
                   >Anular</button>
-                )
-              }
+                  )}
+                </div>
+              )}
             />
           )}
         </Seccion>
@@ -294,8 +302,23 @@ export default function DetallePrestamo() {
           onGuardar={async (body) => {
             setProcesando(true); setError("");
             try {
-              await api("/pagos", { metodo: "POST", body });
-              setOk("Pago registrado correctamente.");
+              const r = await api<{ data: { pago: { id: string; recibo: string } } }>(
+                "/pagos", { metodo: "POST", body }
+              );
+              const nuevo = r.data?.pago;
+              setOk(
+                <>
+                  Pago registrado correctamente.{" "}
+                  {nuevo && (
+                    <Link
+                      href={`/prestamos/creditos/${id}/recibo/${nuevo.id}`}
+                      style={{ color: "inherit", fontWeight: 800, textDecoration: "underline" }}
+                    >
+                      Imprimir recibo {nuevo.recibo} →
+                    </Link>
+                  )}
+                </>
+              );
               setModalPago(null);
               await cargar();
             } catch (e) {
@@ -312,8 +335,23 @@ export default function DetallePrestamo() {
           onGuardar={async (body) => {
             setProcesando(true); setError("");
             try {
-              await api("/solo-redito", { metodo: "POST", body });
-              setOk("Rédito registrado. El capital se trasladó al final del cronograma con su nuevo interés.");
+              const r = await api<{ data: { pago: { id: string; recibo: string } } }>(
+                "/solo-redito", { metodo: "POST", body }
+              );
+              const nuevo = r.data?.pago;
+              setOk(
+                <>
+                  Rédito registrado. El capital se trasladó al final del cronograma con su nuevo interés.{" "}
+                  {nuevo && (
+                    <Link
+                      href={`/prestamos/creditos/${id}/recibo/${nuevo.id}`}
+                      style={{ color: "inherit", fontWeight: 800, textDecoration: "underline" }}
+                    >
+                      Imprimir recibo {nuevo.recibo} →
+                    </Link>
+                  )}
+                </>
+              );
               setModalRedito(null);
               await cargar();
             } catch (e) {

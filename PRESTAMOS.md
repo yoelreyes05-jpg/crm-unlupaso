@@ -1,4 +1,4 @@
-# PRÉSTAMOS — módulo dentro de UNLUPASO
+# CGSSOLUTIONS — módulo de préstamos dentro de UNLUPASO
 
 Gestión de préstamos personales con **inversionistas independientes** y un **administrador** que coloca el dinero y comparte el interés.
 
@@ -10,7 +10,8 @@ Montado dentro de este proyecto igual que CROW EVENTS: mismo Supabase, mismo des
 |---|---|---|
 | POS heladería | `/pos` | `ul_` |
 | CROW EVENTS | `/reposteria` | `rep_` |
-| **Préstamos** | **`/prestamos`** | **`pr_`** |
+| **Préstamos (CGSSOLUTIONS)** | **`/prestamos`** | **`pr_`** |
+| MAXMATT SHOP | `/tienda` | `ti_` |
 
 La barra lateral de préstamos no enlaza a ningún otro módulo, y la de los otros módulos no enlaza a préstamos.
 
@@ -163,6 +164,7 @@ Toda cuota vencida más allá de los días de gracia aparece **en rojo** en el c
 | `/prestamos/creditos/nuevo` | Calculadora en vivo: cronograma completo y reparto de ganancia antes de guardar |
 | `/prestamos/creditos/[id]` | Cronograma, pagos, solo rédito, reenganche, anulación de pagos |
 | `/prestamos/creditos/[id]/estado` | Estado de cuenta imprimible: monto adeudado, cuánto ha pagado, cuántos pagos le quedan y fecha de finalización |
+| `/prestamos/creditos/[id]/recibo/[pago]` | Recibo imprimible de un pago: desglose capital / interés / mora y cómo queda el préstamo |
 | `/prestamos/cobranza` | Atrasadas, vencen hoy y próximos 15 días |
 | `/prestamos/clientes` | Ficha completa con referencias |
 | `/prestamos/inversionistas` | Aportes, retiros, capital en la calle, disponible y ganancias |

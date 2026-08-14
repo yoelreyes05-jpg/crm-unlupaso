@@ -15,7 +15,7 @@ create extension if not exists "pgcrypto";
 -- =====================================================================
 create table if not exists pr_config (
   id                   int primary key default 1 check (id = 1),
-  nombre_empresa       text not null default 'Préstamos UNLUPASO',
+  nombre_empresa       text not null default 'CGSSOLUTIONS',
   rnc                  text,
   telefono             text,
   direccion            text,
