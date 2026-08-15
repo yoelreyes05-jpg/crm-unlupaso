@@ -43,6 +43,8 @@ export const PROVEEDORES: CrudOptions = {
 export const PRODUCTOS: CrudOptions = {
   table: "ti_productos",
   fields: [
+    // El código se genera solo (ART-00001) pero se puede cambiar a mano
+    "codigo",
     "codigo_barra", "nombre", "descripcion", "categoria", "categoria_id", "marca", "unidad",
     "costo", "precio", "itbis_pct", "stock_minimo", "ubicacion",
     "proveedor_id", "imagen_url", "activo", "usuario",
@@ -52,6 +54,8 @@ export const PRODUCTOS: CrudOptions = {
   required: ["nombre"],
   searchFields: ["nombre", "descripcion", "codigo", "codigo_barra", "marca", "lote_codigo"],
   filters: ["activo", "categoria", "categoria_id", "proveedor_id", "tipo_inventario"],
+  // Si se deja el código en blanco, la base pone ART-00001 y sigue contando
+  conDefecto: ["codigo"],
   orderBy: "nombre",
   ascending: true,
 };

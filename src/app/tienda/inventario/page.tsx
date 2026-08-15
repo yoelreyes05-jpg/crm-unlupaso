@@ -72,6 +72,7 @@ function Pestanas({ actual, onCambio }: { actual: Pestana; onCambio: (p: Pestana
 const camposPaca: Campo[] = [
   { name: "nombre", label: "Nombre de la paca", requerido: true, ancho: 2,
     ayuda: "Ej.: Paca de blusas dama · Fardo de jeans usados" },
+  { name: "codigo", label: "Código", ayuda: "Se genera solo, pero puedes ponerle el tuyo. No se puede repetir." },
   { name: "categoria_id", label: "Categoría", tipo: "select",
     fuente: { ruta: "/categorias?activo=true", etiqueta: (r) => String(r.nombre) } },
   { name: "lote_codigo", label: "Código del lote", ayuda: "El que trae el fardo, si tiene" },
@@ -261,6 +262,8 @@ function Pacas() {
 
 const campos: Campo[] = [
   { name: "nombre",       label: "Nombre del producto", requerido: true, ancho: 2 },
+  { name: "codigo",       label: "Código",
+    ayuda: "Se genera solo, pero puedes ponerle el tuyo. No se puede repetir." },
   { name: "codigo_barra", label: "Código de barra" },
   { name: "categoria_id", label: "Categoría", tipo: "select",
     fuente: { ruta: "/categorias?activo=true", etiqueta: (r) => String(r.nombre) } },

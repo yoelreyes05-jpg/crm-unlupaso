@@ -23,6 +23,9 @@ export interface CrudOptions {
   ascending?: boolean;
   /** select() personalizado */
   select?: string;
+  /** Campos que, si llegan vacíos, se omiten para que la base use su valor
+   *  por defecto (ej. `codigo`, que se autogenera). */
+  conDefecto?: string[];
 }
 
 const PREFIJO = "ti_";
@@ -33,10 +36,19 @@ function assertTabla(table: string) {
   }
 }
 
-export function pick(body: Record<string, unknown>, fields: string[]) {
+export function pick(
+  body: Record<string, unknown>,
+  fields: string[],
+  /** Campos que si llegan vacíos se omiten, para que la base ponga su valor
+   *  por defecto en vez de guardar null (ej. el código autogenerado). */
+  conDefecto: string[] = []
+) {
   const out: Record<string, unknown> = {};
   for (const f of fields) {
-    if (body[f] !== undefined) out[f] = body[f] === "" ? null : body[f];
+    if (body[f] === undefined) continue;
+    const vacio = body[f] === "" || body[f] === null;
+    if (vacio && conDefecto.includes(f)) continue;
+    out[f] = body[f] === "" ? null : body[f];
   }
   return out;
 }
@@ -47,6 +59,28 @@ export function fail(err: unknown, fallback: string, status = 500) {
   const e = err as { message?: string; details?: string; hint?: string; code?: string } | null;
   const msg = err instanceof Error ? err.message : e?.message || fallback;
   const extra = e?.details || e?.hint;
+
+  // Errores de base de datos traducidos: el usuario no tiene por qué leer
+  // "duplicate key value violates unique constraint".
+  if (e?.code === "23505") {
+    const campo = /\((\w+)\)/.exec(e?.details ?? "")?.[1];
+    return NextResponse.json(
+      {
+        error: campo
+          ? `Ya existe otro registro con ese ${campo === "codigo" ? "código" : campo}. Ponle uno distinto.`
+          : "Ya existe otro registro con ese dato. Tiene que ser único.",
+        code: e.code,
+      },
+      { status: 409 }
+    );
+  }
+  if (e?.code === "23503") {
+    return NextResponse.json(
+      { error: "No se puede porque hay otros registros que dependen de este.", code: e.code },
+      { status: 409 }
+    );
+  }
+
   return NextResponse.json(
     { error: extra ? `${msg} — ${extra}` : msg, code: e?.code },
     { status }
@@ -114,7 +148,7 @@ export async function crear(req: NextRequest, o: CrudOptions) {
 
     const { data, error } = await supabase
       .from(o.table)
-      .insert(pick(body, o.fields))
+      .insert(pick(body, o.fields, o.conDefecto))
       .select()
       .single();
 
@@ -149,7 +183,7 @@ export async function actualizar(req: NextRequest, id: string, o: CrudOptions) {
     assertTabla(o.table);
     const supabase = createAdminClient();
     const body = await req.json();
-    const cambios = pick(body, o.fields);
+    const cambios = pick(body, o.fields, o.conDefecto);
 
     if (Object.keys(cambios).length === 0) {
       return NextResponse.json({ error: "No hay campos válidos para actualizar" }, { status: 400 });

@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const datos = {
-      ...pick(body, PRODUCTOS.fields),
+      ...pick(body, PRODUCTOS.fields, PRODUCTOS.conDefecto),
       tipo_inventario: "lote",
       costo_lote: costoLote,
       piezas_lote: piezas,

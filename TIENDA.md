@@ -82,6 +82,12 @@ La pantalla muestra, por cada paca: piezas que quedan, piezas vendidas, **barra 
 
 Si hay que corregir la existencia de una paca (se dañó una pieza, salió una de más), se usa **Movimientos → Ajuste por conteo**. El costo por pieza no se toca: siempre sale de dividir el costo del lote entre las piezas.
 
+#### El código del artículo
+
+El código se genera solo (`ART-00001`, y sigue contando), pero **se puede cambiar** desde *Editar* — tanto en productos sueltos como en pacas. Sirve para usar tu propia nomenclatura: `CAM-001`, `ZAP-2026-01`, lo que uses en la tienda.
+
+Dos reglas: no se puede repetir (si pones uno que ya existe el sistema lo dice y no guarda), y si lo dejas en blanco al crear el artículo, la base le pone el suyo automático. Cambiarle el código a un producto ya facturado no afecta las facturas viejas.
+
 #### Borrar un producto o una paca
 
 Cada fila del inventario tiene **Eliminar**. Si el artículo se metió por equivocación y **nunca se vendió ni se compró**, se borra por completo junto con sus movimientos de inventario.
