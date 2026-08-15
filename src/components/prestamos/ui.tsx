@@ -328,7 +328,12 @@ export function Titulo({
         <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: T.texto }}>{texto}</h1>
         {sub && <div style={{ fontSize: 13, color: T.suave, marginTop: 3 }}>{sub}</div>}
       </div>
-      {acciones && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{acciones}</div>}
+      {/* Los botones no se imprimen nunca */}
+      {acciones && (
+        <div className="no-imprimir" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {acciones}
+        </div>
+      )}
     </div>
   );
 }

@@ -71,14 +71,6 @@ export default function DetalleVenta() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <style>{`@media print {
-        .no-imprimir { display: none !important; }
-        body { background: #fff !important; }
-        aside { display: none !important; }
-        main { padding: 0 !important; }
-        @page { margin: 12mm; }
-      }`}</style>
-
       <div className="no-imprimir">
         <Link href="/tienda/ventas" style={{ fontSize: 12, color: T.acento, textDecoration: "none" }}>
           ← Ventas

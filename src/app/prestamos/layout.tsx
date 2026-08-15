@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import EstilosImpresion from "@/components/prestamos/EstilosImpresion";
 import SidebarPrestamos from "@/components/prestamos/Sidebar";
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export default function PrestamosLayout({ children }: { children: React.ReactNod
       color: "#0f2430",
       fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
     }}>
+      <EstilosImpresion />
       <SidebarPrestamos />
       <main style={{ flex: 1, padding: "26px 30px", minWidth: 0 }}>{children}</main>
     </div>
