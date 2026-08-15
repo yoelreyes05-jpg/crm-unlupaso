@@ -18,7 +18,7 @@ interface ClienteOpcion {
 }
 
 interface ItemGuardado {
-  producto_id: string; descripcion: string; cantidad: number; precio: number;
+  producto_id: string | null; descripcion: string; cantidad: number; precio: number;
   costo: number; itbis_pct: number; descuento: number;
 }
 
@@ -61,6 +61,7 @@ function NuevaVenta() {
   // Al editar no queremos que el efecto de "sugerir vencimiento" pise la
   // fecha que ya tenía la factura antes de que el usuario toque algo.
   const [listoParaSugerir, setListoParaSugerir] = useState(!editando);
+  const [soloLectura, setSoloLectura] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -90,6 +91,15 @@ function NuevaVenta() {
             setError("Esta factura está anulada: ya no se puede modificar.");
           }
           setCodigo(String(v.codigo ?? ""));
+          // Si alguna línea perdió su artículo (se sacó del inventario) no se
+          // puede rehacer la factura: no habría de dónde mover la mercancía.
+          if ((r.data.items ?? []).some((it) => !it.producto_id)) {
+            setError(
+              "Esta factura tiene artículos que ya se sacaron del inventario, " +
+              "por eso no se puede modificar. Se puede ver, imprimir y cobrar sin problema."
+            );
+            setSoloLectura(true);
+          }
           setF({
             cliente_id: (v.cliente_id as string) ?? "",
             fecha: String(v.fecha ?? hoyISO()).slice(0, 10),
@@ -103,10 +113,10 @@ function NuevaVenta() {
           // El stock que muestra el editor debe contar lo que esta misma
           // factura ya descontó, porque al guardar se devuelve primero.
           setLineas(
-            (r.data.items ?? []).map((it) => {
+            (r.data.items ?? []).filter((it) => !!it.producto_id).map((it) => {
               const prod = listaProductos.find((x) => x.id === it.producto_id);
               return {
-                producto_id: it.producto_id,
+                producto_id: it.producto_id as string,
                 descripcion: it.descripcion,
                 cantidad: Number(it.cantidad),
                 precio: Number(it.precio),
@@ -151,6 +161,7 @@ function NuevaVenta() {
     f.condicion === "credito" && !!cliente && t.total > Number(cliente.credito_disponible);
 
   async function guardar() {
+    if (soloLectura) return;
     setError("");
     if (!lineas.length) return setError("Agrega al menos un producto.");
     if (excedeStock) return setError("Hay líneas que superan la existencia disponible.");
@@ -215,7 +226,7 @@ function NuevaVenta() {
           ? "Los cobros ya recibidos se conservan. El inventario se reajusta solo al guardar."
           : undefined}
         acciones={
-          <Btn onClick={guardar} disabled={guardando || !lineas.length || excedeStock}>
+          <Btn onClick={guardar} disabled={guardando || soloLectura || !lineas.length || excedeStock}>
             {textoBoton}
           </Btn>
         }
@@ -324,7 +335,7 @@ function NuevaVenta() {
               </>
             )}
           </div>
-          <Btn onClick={guardar} disabled={guardando || !lineas.length || excedeStock}>
+          <Btn onClick={guardar} disabled={guardando || soloLectura || !lineas.length || excedeStock}>
             {textoBoton}
           </Btn>
         </div>

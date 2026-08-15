@@ -35,6 +35,14 @@ supabase/tienda_pacas.sql
 
 Agrega la tabla `ti_categorias` (con Ropa nueva, Ropa usada, Calzado, Accesorios, Hogar y Varios ya creadas), los campos de lote en `ti_productos` y las vistas `ti_v_lotes` y `ti_v_ganancia_categoria`. También es idempotente: se puede volver a correr cuando haga falta.
 
+Y por último, para poder **borrar artículos aunque ya estén facturados**:
+
+```
+supabase/tienda_borrar_productos.sql
+```
+
+Guarda la descripción y el código del artículo dentro de cada línea de factura y compra, y suelta el candado que impedía borrarlo. Idempotente también.
+
 Después verifica en el navegador:
 
 ```
@@ -90,9 +98,17 @@ Dos reglas: no se puede repetir (si pones uno que ya existe el sistema lo dice y
 
 #### Borrar un producto o una paca
 
-Cada fila del inventario tiene **Eliminar**. Si el artículo se metió por equivocación y **nunca se vendió ni se compró**, se borra por completo junto con sus movimientos de inventario.
+Cada fila del inventario tiene **Eliminar**, y funciona **aunque el artículo ya se haya vendido o comprado**. Es para lo de siempre: un artículo con poca salida que simplemente se saca del inventario.
 
-Si ya aparece en alguna factura, el sistema **no lo borra** y lo dice: quitarlo dejaría esas facturas sin cuadrar. En ese caso se usa *Editar* y se le quita la marca de **Activo** — deja de salir en el catálogo y en las ventas, y los documentos viejos quedan intactos.
+Lo que pasa al borrarlo:
+
+- El artículo y su kardex desaparecen del catálogo. No se puede recuperar.
+- Las facturas y compras donde ya aparecía **no se tocan**. Cada línea guarda su propia descripción, código, cantidad, precio, costo e importe, así que **los totales, la ganancia, la caja y la contabilidad quedan exactamente igual**. En la factura sale el nombre y el código que tenía cuando se vendió.
+- En *Productos más vendidos* sigue apareciendo, marcado como eliminado.
+
+Lo único que se pierde es la posibilidad de **modificar** esas facturas: si una factura contiene un artículo que ya no existe, se puede ver, imprimir, cobrar, anular y eliminar, pero el botón *Modificar* se apaga — no habría de dónde mover la mercancía. La pantalla lo avisa.
+
+Al **anular** una factura así, la mercancía que sí sigue existiendo vuelve al inventario y las líneas de artículos borrados simplemente se saltan.
 
 Borrar una **categoría** no borra ningún producto: los que la tuvieran simplemente quedan sin categoría.
 

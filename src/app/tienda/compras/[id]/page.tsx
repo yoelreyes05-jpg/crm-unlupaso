@@ -16,6 +16,7 @@ interface Compra {
 }
 interface Item {
   id: string; cantidad: number; costo: number; itbis_pct: number; importe: number;
+  descripcion?: string | null; codigo_articulo?: string | null;
   ti_productos?: { codigo: string; nombre: string; unidad: string } | null;
 }
 interface Pago {
@@ -81,11 +82,15 @@ export default function DetalleCompra() {
           columnas={[
             { name: "id", label: "Producto",
               fmt: (_v, f) => {
+                // Si el artículo se sacó del inventario, la línea conserva
+                // su propia descripción y su código.
                 const p = f.ti_productos as { codigo: string; nombre: string } | null;
+                const nombre = p?.nombre ?? (f.descripcion as string) ?? "Artículo eliminado";
+                const codigo = p?.codigo ?? (f.codigo_articulo as string) ?? "";
                 return (
                   <div>
-                    <strong>{p?.nombre ?? "—"}</strong>
-                    {p?.codigo && <div style={{ fontSize: 10.5, color: T.suave }}>{p.codigo}</div>}
+                    <strong>{nombre}</strong>
+                    {codigo && <div style={{ fontSize: 10.5, color: T.suave }}>{codigo}</div>}
                   </div>
                 );
               } },

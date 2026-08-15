@@ -131,6 +131,9 @@ export async function crearVenta(d: DatosVenta) {
         venta_id: venta.id,
         producto_id: i.producto_id,
         descripcion: i.descripcion || String(p.nombre ?? ""),
+        // La línea guarda su propia identidad: si el artículo se borra del
+        // catálogo, la factura sigue mostrando qué se vendió.
+        codigo_articulo: String(p.codigo ?? ""),
         cantidad: Number(i.cantidad),
         precio,
         costo: Number(i.costo ?? p.costo ?? 0),
@@ -196,8 +199,10 @@ export async function anularVenta(id: string, usuario?: string) {
   const { data: items } = await sb
     .from("ti_venta_items").select("producto_id,cantidad").eq("venta_id", id);
 
-  // Devolver la mercancía
-  for (const it of (items ?? []) as { producto_id: string; cantidad: number }[]) {
+  // Devolver la mercancía (las líneas de artículos ya borrados se saltan)
+  const vivos = ((items ?? []) as { producto_id: string | null; cantidad: number }[])
+    .filter((it) => !!it.producto_id) as { producto_id: string; cantidad: number }[];
+  for (const it of vivos) {
     await sb.from("ti_movimientos_inventario").insert({
       producto_id: it.producto_id,
       tipo: "devolucion",
@@ -273,11 +278,23 @@ export async function crearCompra(d: DatosCompra) {
   if (ec) throw ec;
 
   try {
+    // Traer nombre y código para dejarlos escritos en la línea: si el
+    // artículo se borra después, la compra sigue diciendo qué se compró.
+    const idsCompra = [...new Set(d.items.map((i) => i.producto_id))];
+    const { data: prods } = await sb
+      .from("ti_productos").select("id,codigo,nombre").in("id", idsCompra);
+    const mapaCompra = new Map(
+      ((prods ?? []) as Record<string, unknown>[]).map((p) => [String(p.id), p])
+    );
+
     const lineas = d.items.map((i) => {
       const costo = Number(i.costo ?? 0);
+      const p = mapaCompra.get(i.producto_id);
       return {
         compra_id: compra.id,
         producto_id: i.producto_id,
+        descripcion: i.descripcion || String(p?.nombre ?? ""),
+        codigo_articulo: String(p?.codigo ?? ""),
         cantidad: Number(i.cantidad),
         costo,
         itbis_pct: Number(i.itbis_pct ?? 0),
@@ -387,7 +404,12 @@ async function devolverInventario(ventaId: string, codigo: string, usuario?: str
   const { data: items } = await sb
     .from("ti_venta_items").select("producto_id,cantidad").eq("venta_id", ventaId);
 
-  for (const it of (items ?? []) as { producto_id: string; cantidad: number }[]) {
+  // Si el artículo ya se borró del catálogo no hay a dónde devolverle nada,
+  // así que esa línea se salta y el resto de la factura sí se revierte.
+  const vivos = ((items ?? []) as { producto_id: string | null; cantidad: number }[])
+    .filter((it) => !!it.producto_id) as { producto_id: string; cantidad: number }[];
+
+  for (const it of vivos) {
     await sb.from("ti_movimientos_inventario").insert({
       producto_id: it.producto_id,
       tipo: "devolucion",
@@ -432,7 +454,7 @@ export async function editarVenta(id: string, d: DatosVenta) {
   const ids = [...new Set(d.items.map((i) => i.producto_id))];
   const { data: productos, error: ep } = await sb
     .from("ti_productos")
-    .select("id,nombre,precio,costo,itbis_pct,stock_actual")
+    .select("id,codigo,nombre,precio,costo,itbis_pct,stock_actual")
     .in("id", ids);
   if (ep) throw ep;
 
@@ -485,6 +507,7 @@ export async function editarVenta(id: string, d: DatosVenta) {
       venta_id: id,
       producto_id: i.producto_id,
       descripcion: i.descripcion || String(p.nombre ?? ""),
+      codigo_articulo: String(p.codigo ?? ""),
       cantidad: Number(i.cantidad),
       precio,
       costo: Number(i.costo ?? p.costo ?? 0),

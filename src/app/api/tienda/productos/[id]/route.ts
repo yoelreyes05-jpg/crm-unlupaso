@@ -41,27 +41,24 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     const enVentas = ventas.count ?? 0;
     const enCompras = compras.count ?? 0;
 
-    if (enVentas > 0 || enCompras > 0) {
-      const partes: string[] = [];
-      if (enVentas > 0) partes.push(`${enVentas} factura(s) de venta`);
-      if (enCompras > 0) partes.push(`${enCompras} compra(s)`);
-      return NextResponse.json(
-        {
-          error:
-            `«${producto.nombre}» ya aparece en ${partes.join(" y ")}. ` +
-            "Borrarlo dejaría esos documentos sin cuadrar, así que no se puede. " +
-            "Desactívalo con el botón Editar, quitando la marca de «Activo»: " +
-            "deja de salir en el catálogo y en las ventas, y las facturas viejas quedan intactas.",
-        },
-        { status: 409 }
-      );
-    }
-
-    // Sin historial: el kardex se va en cascada junto con el producto.
+    // Se borra aunque tenga historial. Las líneas de las facturas viejas
+    // conservan descripción, código, cantidad, precio, costo e importe, así
+    // que los totales y la contabilidad no cambian: lo único que se pierde
+    // es el enlace al artículo del catálogo. El kardex sí se va con él.
     const { error } = await sb.from("ti_productos").delete().eq("id", id);
     if (error) throw error;
 
-    return NextResponse.json({ message: `«${producto.nombre}» se eliminó por completo.` });
+    const partes: string[] = [];
+    if (enVentas > 0) partes.push(`${enVentas} línea(s) de factura`);
+    if (enCompras > 0) partes.push(`${enCompras} línea(s) de compra`);
+
+    return NextResponse.json({
+      message: partes.length
+        ? `«${producto.nombre}» se sacó del inventario. ` +
+          `Sus ${partes.join(" y ")} quedan en el historial con su descripción y sus montos, ` +
+          "así que las facturas y la contabilidad no cambian."
+        : `«${producto.nombre}» se eliminó por completo.`,
+    });
   } catch (err) {
     return fail(err, "No se pudo eliminar el producto");
   }

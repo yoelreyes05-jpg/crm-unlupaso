@@ -124,7 +124,8 @@ export const COMPRAS_VISTA: CrudOptions = {
 
 export const COMPRA_ITEMS: CrudOptions = {
   table: "ti_compra_items",
-  fields: ["compra_id", "producto_id", "cantidad", "costo", "itbis_pct", "importe"],
+  fields: ["compra_id", "producto_id", "descripcion", "codigo_articulo",
+           "cantidad", "costo", "itbis_pct", "importe"],
   required: ["compra_id", "producto_id", "cantidad"],
   filters: ["compra_id"],
   orderBy: "created_at",
@@ -154,7 +155,8 @@ export const VENTAS_VISTA: CrudOptions = {
 
 export const VENTA_ITEMS: CrudOptions = {
   table: "ti_venta_items",
-  fields: ["venta_id", "producto_id", "descripcion", "cantidad", "precio", "costo", "itbis_pct", "descuento", "importe"],
+  fields: ["venta_id", "producto_id", "descripcion", "codigo_articulo",
+           "cantidad", "precio", "costo", "itbis_pct", "descuento", "importe"],
   required: ["venta_id", "producto_id", "cantidad"],
   filters: ["venta_id"],
   orderBy: "created_at",

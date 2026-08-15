@@ -44,15 +44,25 @@ export async function GET() {
     }
     const faltanPacas = Object.values(pacas).some((v) => v.startsWith("ERROR"));
 
+    // ¿Ya se puede borrar un artículo que esté facturado? Se sabe por la
+    // columna que guarda el código en la línea (tienda_borrar_productos.sql).
+    const { error: eBorrado } = await sb
+      .from("ti_venta_items").select("codigo_articulo", { head: true }).limit(1);
+    const puedeBorrarFacturados = !eBorrado;
+
     const mensajes: string[] = [];
     if (faltantes.length > 0) mensajes.push("Ejecuta supabase/tienda_schema.sql en el SQL Editor de Supabase.");
     if (faltanPacas) mensajes.push("Ejecuta supabase/tienda_pacas.sql para habilitar pacas y categorías.");
+    if (!puedeBorrarFacturados) {
+      mensajes.push("Ejecuta supabase/tienda_borrar_productos.sql para poder borrar artículos ya facturados.");
+    }
 
     return NextResponse.json({
       ok: faltantes.length === 0,
       entorno,
       tablas: resultado,
       pacas,
+      borrado_de_facturados: puedeBorrarFacturados ? "ok" : "falta tienda_borrar_productos.sql",
       mensaje: mensajes.length === 0 ? "MAXMATT SHOP listo." : mensajes.join(" "),
     });
   } catch (err) {

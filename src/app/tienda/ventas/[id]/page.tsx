@@ -21,6 +21,7 @@ interface Venta {
 interface Item {
   id: string; descripcion: string; cantidad: number; precio: number;
   itbis_pct: number; descuento: number; importe: number;
+  producto_id: string | null; codigo_articulo: string | null;
   ti_productos?: { codigo: string; nombre: string; unidad: string } | null;
 }
 interface Cobro {
@@ -62,6 +63,9 @@ export default function DetalleVenta() {
   const n = negocioTienda(cfg ?? undefined);
   const s = n.simbolo;
   const cobrosVivos = d.cobros.filter((c) => !c.anulado);
+  // Una factura con artículos que ya se sacaron del inventario se puede ver,
+  // imprimir y cobrar, pero no rehacer: no habría de dónde sacar la mercancía.
+  const hayBorrados = d.items.some((i) => !i.producto_id);
 
   const th: React.CSSProperties = {
     textAlign: "left", padding: "8px 10px", fontSize: 10.5, textTransform: "uppercase",
@@ -87,7 +91,7 @@ export default function DetalleVenta() {
           acciones={
             <>
               <Btn tono="neutro" onClick={() => window.print()}>Imprimir factura</Btn>
-              {v.estado !== "anulada" && (
+              {v.estado !== "anulada" && !hayBorrados && (
                 <Link href={`/tienda/ventas/nueva?editar=${id}`} style={{ textDecoration: "none" }}>
                   <Btn tono="neutro">Modificar</Btn>
                 </Link>
@@ -129,6 +133,12 @@ export default function DetalleVenta() {
         />
         {ok && <Aviso texto={ok} tono="ok" />}
         {error && <Aviso texto={error} />}
+        {hayBorrados && (
+          <Aviso tono="info" texto={
+            "Esta factura tiene artículos que ya se sacaron del inventario. Se puede ver, " +
+            "imprimir y cobrar con normalidad; solo no se puede modificar."
+          } />
+        )}
 
         <div style={{ ...rejilla(190), marginBottom: 18 }}>
           <Kpi titulo="Total" valor={RD(v.total, s)} />
@@ -205,9 +215,11 @@ export default function DetalleVenta() {
             {d.items.map((it) => (
               <tr key={it.id}>
                 <td style={td}>
-                  <strong>{it.descripcion || it.ti_productos?.nombre}</strong>
-                  {it.ti_productos?.codigo && (
-                    <div style={{ fontSize: 10.5, color: T.suave }}>{it.ti_productos.codigo}</div>
+                  <strong>{it.descripcion || it.ti_productos?.nombre || "Artículo eliminado"}</strong>
+                  {(it.ti_productos?.codigo || it.codigo_articulo) && (
+                    <div style={{ fontSize: 10.5, color: T.suave }}>
+                      {it.ti_productos?.codigo ?? it.codigo_articulo}
+                    </div>
                   )}
                 </td>
                 <td style={{ ...td, textAlign: "right" }}>

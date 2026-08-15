@@ -213,9 +213,10 @@ function Pacas() {
         borrar={{
           query: "definitivo=1",
           confirmar: (f) =>
-            `¿Borrar la paca «${f.nombre}» por completo?\n\n` +
-            "Desaparece del inventario junto con sus movimientos y no se puede recuperar.\n" +
-            "Solo se puede si nunca se le vendió ni se le compró nada.",
+            `¿Sacar del inventario la paca «${f.nombre}»?\n\n` +
+            "Desaparece del catálogo junto con sus movimientos y no se puede recuperar.\n\n" +
+            "Las facturas donde ya aparezca NO se tocan: conservan la descripción, " +
+            "el precio y el importe, así que los totales y la ganancia siguen igual.",
         }}
         extraAcciones={(f, recargar) => (
           <button
@@ -377,9 +378,10 @@ function Productos() {
         borrar={{
           query: "definitivo=1",
           confirmar: (f) =>
-            `¿Borrar «${f.nombre}» por completo?\n\n` +
-            "Desaparece del inventario junto con sus movimientos y no se puede recuperar.\n" +
-            "Solo se puede si nunca se vendió ni se compró.",
+            `¿Sacar «${f.nombre}» del inventario?\n\n` +
+            "Desaparece del catálogo junto con sus movimientos y no se puede recuperar.\n\n" +
+            "Las facturas donde ya aparezca NO se tocan: conservan la descripción, " +
+            "el precio y el importe, así que los totales y la ganancia siguen igual.",
         }}
         extraAcciones={(f, recargar) => (
           <button
