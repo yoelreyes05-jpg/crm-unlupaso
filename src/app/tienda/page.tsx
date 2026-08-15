@@ -13,6 +13,9 @@ interface Kpis {
   ventas_mes: number; ganancia_mes: number; gastos_mes: number;
   por_cobrar: number; por_cobrar_vencido: number; por_pagar: number;
   por_pagar_vencido: number; caja_abierta: number; efectivo_en_caja: number;
+  // Pacas — llegan solo si ya se corrió supabase/tienda_pacas.sql
+  lotes_total?: number; lotes_abiertos?: number;
+  falta_recuperar?: number; ganancia_lotes?: number;
 }
 interface Datos {
   kpis: Kpis;
@@ -107,6 +110,20 @@ export default function TableroTienda() {
              detalle={`${k.productos_agotados} agotado(s)`}
              tono={k.productos_agotados > 0 ? "err" : k.productos_bajos > 0 ? "warn" : "neutro"} />
       </div>
+
+      {Number(k.lotes_total ?? 0) > 0 && (
+        <div style={{ ...rejilla(205), marginBottom: 20 }}>
+          <Kpi titulo="Pacas en la tienda" valor={Number(k.lotes_total)}
+               detalle={`${Number(k.lotes_abiertos ?? 0)} todavía con piezas`} tono="acento" />
+          <Kpi titulo="Falta recuperar" valor={RD(k.falta_recuperar ?? 0, simbolo)}
+               detalle={Number(k.falta_recuperar ?? 0) > 0
+                 ? "Para que las pacas se paguen solas"
+                 : "Toda la inversión recuperada"}
+               tono={Number(k.falta_recuperar ?? 0) > 0 ? "warn" : "ok"} />
+          <Kpi titulo="Ganancia de las pacas" valor={RD(k.ganancia_lotes ?? 0, simbolo)}
+               detalle="Ya cobrada" tono="ok" />
+        </div>
+      )}
 
       <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", marginBottom: 18 }}>
         <Seccion

@@ -95,12 +95,17 @@ export default function DetalleVenta() {
           acciones={
             <>
               <Btn tono="neutro" onClick={() => window.print()}>Imprimir factura</Btn>
+              {v.estado !== "anulada" && (
+                <Link href={`/tienda/ventas/nueva?editar=${id}`} style={{ textDecoration: "none" }}>
+                  <Btn tono="neutro">Modificar</Btn>
+                </Link>
+              )}
               {v.estado !== "anulada" && Number(v.saldo) > 0.01 && (
                 <Btn tono="ok" onClick={() => setModal(true)}>Registrar cobro</Btn>
               )}
               {v.estado !== "anulada" && (
                 <Btn tono="err" disabled={procesando} onClick={async () => {
-                  if (!confirm("¿Anular esta factura?\n\nSe devuelve la mercancía al inventario y se revierten los cobros.")) return;
+                  if (!confirm("¿Anular esta factura?\n\nSe devuelve la mercancía al inventario y se revierten los cobros.\nLa factura queda en el historial marcada como anulada.")) return;
                   setProcesando(true); setError("");
                   try {
                     await api(`/ventas/${id}`, { metodo: "DELETE" });
@@ -111,6 +116,22 @@ export default function DetalleVenta() {
                   } finally { setProcesando(false); }
                 }}>Anular</Btn>
               )}
+              <Btn tono="err" disabled={procesando} onClick={async () => {
+                if (!confirm(
+                  `¿Borrar la factura ${v.codigo} definitivamente?\n\n` +
+                  "Desaparece del historial y no se puede recuperar. " +
+                  "La mercancía vuelve al inventario y el dinero sale de la caja.\n\n" +
+                  "Si solo quieres dejar sin efecto la factura, usa Anular."
+                )) return;
+                setProcesando(true); setError("");
+                try {
+                  await api(`/ventas/${id}?definitivo=1`, { metodo: "DELETE" });
+                  window.location.href = "/tienda/ventas";
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Error");
+                  setProcesando(false);
+                }
+              }}>Eliminar</Btn>
             </>
           }
         />

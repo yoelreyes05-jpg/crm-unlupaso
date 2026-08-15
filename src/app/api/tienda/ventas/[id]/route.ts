@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { fail } from "@/lib/tienda/crud";
-import { anularVenta } from "@/lib/tienda/motor";
+import { anularVenta, editarVenta, eliminarVenta } from "@/lib/tienda/motor";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -24,12 +24,39 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   }
 }
 
-/** DELETE anula la factura: devuelve mercancía y revierte los cobros. */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+/**
+ * PUT modifica una factura ya guardada: cambia sus líneas y sus datos.
+ * El inventario se ajusta solo y los cobros ya recibidos se respetan.
+ */
+export async function PUT(req: NextRequest, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
+    const body = await req.json();
+    return NextResponse.json({ data: await editarVenta(id, body) });
+  } catch (err) {
+    return fail(err, "No se pudo guardar la factura");
+  }
+}
+
+/** PATCH hace lo mismo que PUT, por comodidad del cliente. */
+export const PATCH = PUT;
+
+/**
+ * DELETE anula la factura: devuelve la mercancía y revierte los cobros,
+ * pero conserva el registro en el historial.
+ * Con ?definitivo=1 la borra por completo de la base de datos.
+ */
+export async function DELETE(req: NextRequest, ctx: Ctx) {
+  try {
+    const { id } = await ctx.params;
+    const definitivo = req.nextUrl.searchParams.get("definitivo");
+    const usuario = req.nextUrl.searchParams.get("usuario") ?? undefined;
+
+    if (definitivo === "1" || definitivo === "true") {
+      return NextResponse.json({ data: await eliminarVenta(id, usuario) });
+    }
     return NextResponse.json({ data: await anularVenta(id) });
   } catch (err) {
-    return fail(err, "No se pudo anular la factura");
+    return fail(err, "No se pudo eliminar la factura");
   }
 }

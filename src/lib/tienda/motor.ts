@@ -11,6 +11,24 @@ import { createAdminClient } from "@/lib/supabase/server";
 
 const r2 = (n: number) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
+/**
+ * Sesión de caja abierta en este momento.
+ * Un movimiento de caja sin sesión no aparece en el cuadre del día, así que
+ * todo lo que se inserta a mano tiene que amarrarse a la caja abierta igual
+ * que lo hace el trigger de los cobros.
+ */
+async function sesionCajaAbierta(): Promise<string | null> {
+  const sb = createAdminClient();
+  const { data } = await sb
+    .from("ti_caja_sesiones")
+    .select("id")
+    .eq("estado", "abierta")
+    .order("fecha_apertura", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 export interface LineaDocumento {
   producto_id: string;
   descripcion?: string;
@@ -194,9 +212,11 @@ export async function anularVenta(id: string, usuario?: string) {
 
   // Revertir los cobros y su efecto en caja
   const { data: cobros } = await sb.from("ti_cobros").select("id,monto,recibo").eq("venta_id", id).eq("anulado", false);
+  const sesionAnular = await sesionCajaAbierta();
   for (const c of (cobros ?? []) as { id: string; monto: number; recibo: string }[]) {
     await sb.from("ti_cobros").update({ anulado: true }).eq("id", c.id);
     await sb.from("ti_caja_movimientos").insert({
+      sesion_id: sesionAnular,
       tipo: "egreso",
       categoria: "anulacion",
       concepto: `Reverso del cobro ${c.recibo} (factura ${venta.codigo} anulada)`,
@@ -355,4 +375,254 @@ export async function cerrarCaja(sesion_id: string, monto_contado: number, notas
     .single();
   if (error) throw error;
   return data;
+}
+
+/* ================================================================== */
+/* EDITAR Y ELIMINAR FACTURAS                                          */
+/* ================================================================== */
+
+/** Devuelve al inventario todo lo que salió por una factura. */
+async function devolverInventario(ventaId: string, codigo: string, usuario?: string) {
+  const sb = createAdminClient();
+  const { data: items } = await sb
+    .from("ti_venta_items").select("producto_id,cantidad").eq("venta_id", ventaId);
+
+  for (const it of (items ?? []) as { producto_id: string; cantidad: number }[]) {
+    await sb.from("ti_movimientos_inventario").insert({
+      producto_id: it.producto_id,
+      tipo: "devolucion",
+      cantidad: it.cantidad,
+      origen: "anulacion",
+      origen_id: ventaId,
+      referencia: codigo,
+      notas: "Reverso por edición o borrado de la factura",
+      usuario: usuario || null,
+    });
+  }
+}
+
+/**
+ * Modifica una factura ya guardada: cambia sus líneas y sus datos.
+ *
+ * Como el inventario ya se movió, primero se devuelve todo lo que salió,
+ * se borran las líneas viejas y se vuelve a aplicar con las nuevas. Los
+ * cobros ya recibidos se respetan; solo se recalcula el estado.
+ */
+export async function editarVenta(id: string, d: DatosVenta) {
+  const sb = createAdminClient();
+  if (!d.items?.length) throw new Error("La factura no puede quedar sin productos.");
+
+  const { data: venta, error: ev } = await sb.from("ti_ventas").select("*").eq("id", id).single();
+  if (ev || !venta) throw new Error("Factura no encontrada");
+  if (venta.estado === "anulada") throw new Error("No se puede editar una factura anulada");
+
+  const fecha = d.fecha ?? venta.fecha;
+  const condicion = d.condicion ?? venta.condicion;
+
+  // 1. Qué salió con las líneas actuales: al editar eso vuelve al inventario,
+  //    así que cuenta como disponible para las líneas nuevas.
+  const { data: viejos } = await sb
+    .from("ti_venta_items").select("producto_id,cantidad").eq("venta_id", id);
+  const devuelto = new Map<string, number>();
+  for (const it of (viejos ?? []) as { producto_id: string; cantidad: number }[]) {
+    devuelto.set(it.producto_id, (devuelto.get(it.producto_id) ?? 0) + Number(it.cantidad));
+  }
+
+  // 2. Validar TODO antes de tocar nada: si algo falla, la factura queda intacta.
+  const ids = [...new Set(d.items.map((i) => i.producto_id))];
+  const { data: productos, error: ep } = await sb
+    .from("ti_productos")
+    .select("id,nombre,precio,costo,itbis_pct,stock_actual")
+    .in("id", ids);
+  if (ep) throw ep;
+
+  const mapa = new Map(
+    ((productos ?? []) as Record<string, unknown>[]).map((p) => [String(p.id), p])
+  );
+
+  const faltantes: string[] = [];
+  for (const pid of ids) {
+    const p = mapa.get(pid);
+    if (!p) throw new Error("Uno de los productos de la factura ya no existe.");
+    const pedido = d.items
+      .filter((i) => i.producto_id === pid)
+      .reduce((a, i) => a + Number(i.cantidad), 0);
+    const disponible = Number(p.stock_actual) + (devuelto.get(pid) ?? 0);
+    if (disponible < pedido) {
+      faltantes.push(`${p.nombre}: quedan ${disponible}, pides ${pedido}`);
+    }
+  }
+  if (faltantes.length) {
+    throw new Error(`No hay suficiente inventario. ${faltantes.join(" · ")}`);
+  }
+
+  // 3. Ya validado: devolver la mercancía vieja y borrar sus líneas.
+  await devolverInventario(id, venta.codigo, d.usuario);
+  await sb.from("ti_venta_items").delete().eq("venta_id", id);
+
+  // 4. Cabecera
+  await sb
+    .from("ti_ventas")
+    .update({
+      cliente_id: d.cliente_id === undefined ? venta.cliente_id : d.cliente_id || null,
+      fecha,
+      ncf: d.ncf ?? venta.ncf,
+      condicion,
+      fecha_vence: condicion === "credito" ? (d.fecha_vence ?? venta.fecha_vence) : null,
+      descuento: r2(Number(d.descuento ?? venta.descuento ?? 0)),
+      metodo_pago: condicion === "credito" ? "credito" : (d.metodo_pago ?? venta.metodo_pago),
+      notas: d.notas ?? venta.notas,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  // 5. Líneas nuevas (los triggers recalculan los totales)
+  const lineas = d.items.map((i) => {
+    const p = mapa.get(i.producto_id)!;
+    const precio = Number(i.precio ?? p.precio ?? 0);
+    const desc = Number(i.descuento ?? 0);
+    return {
+      venta_id: id,
+      producto_id: i.producto_id,
+      descripcion: i.descripcion || String(p.nombre ?? ""),
+      cantidad: Number(i.cantidad),
+      precio,
+      costo: Number(i.costo ?? p.costo ?? 0),
+      itbis_pct: Number(i.itbis_pct ?? p.itbis_pct ?? 0),
+      descuento: desc,
+      importe: r2(Number(i.cantidad) * precio - desc),
+    };
+  });
+  const { error: ei } = await sb.from("ti_venta_items").insert(lineas);
+  if (ei) throw ei;
+
+  // 6. Volver a descargar el inventario
+  const { error: em } = await sb.from("ti_movimientos_inventario").insert(
+    lineas.map((l) => ({
+      producto_id: l.producto_id,
+      fecha,
+      tipo: "salida",
+      cantidad: l.cantidad,
+      origen: "venta",
+      origen_id: id,
+      referencia: venta.codigo,
+      usuario: d.usuario || null,
+    }))
+  );
+  if (em) throw em;
+
+  // 7. Cuadrar el dinero: en una venta de contado la caja tiene que reflejar
+  //    el total nuevo, no el viejo.
+  const { data: final } = await sb.from("ti_ventas").select("total,pagado").eq("id", id).single();
+  const total = r2(Number(final?.total ?? 0));
+  let pagado = r2(Number(final?.pagado ?? 0));
+
+  if (condicion === "contado" && Math.abs(total - pagado) > 0.01) {
+    const dif = r2(total - pagado);
+
+    if (dif > 0) {
+      // Subió el monto: entra la diferencia a la caja.
+      await sb.from("ti_cobros").insert({
+        venta_id: id,
+        cliente_id: d.cliente_id === undefined ? venta.cliente_id : d.cliente_id || null,
+        fecha,
+        monto: dif,
+        metodo_pago: d.metodo_pago ?? venta.metodo_pago ?? "efectivo",
+        notas: `Diferencia por modificación de la factura ${venta.codigo}`,
+        usuario: d.usuario || null,
+      });
+    } else {
+      // Bajó el monto: hay que devolverle dinero al cliente. Se anulan los
+      // cobros viejos, se saca de la caja lo que había entrado y se vuelve a
+      // cobrar el total nuevo, para que quede el rastro completo.
+      const { data: vivos } = await sb
+        .from("ti_cobros").select("id,monto,recibo").eq("venta_id", id).eq("anulado", false);
+      const cobrado = r2(
+        ((vivos ?? []) as { monto: number }[]).reduce((a, c) => a + Number(c.monto), 0)
+      );
+
+      if (cobrado > 0) {
+        await sb.from("ti_cobros").update({ anulado: true }).eq("venta_id", id).eq("anulado", false);
+        await sb.from("ti_caja_movimientos").insert({
+          sesion_id: await sesionCajaAbierta(),
+          fecha,
+          tipo: "egreso",
+          categoria: "anulacion",
+          concepto: `Reverso de cobros de la factura ${venta.codigo} (se modificó)`,
+          monto: cobrado,
+          origen: "manual",
+          usuario: d.usuario || null,
+        });
+      }
+
+      if (total > 0) {
+        await sb.from("ti_cobros").insert({
+          venta_id: id,
+          cliente_id: d.cliente_id === undefined ? venta.cliente_id : d.cliente_id || null,
+          fecha,
+          monto: total,
+          metodo_pago: d.metodo_pago ?? venta.metodo_pago ?? "efectivo",
+          notas: `Cobro del nuevo total de la factura ${venta.codigo}`,
+          usuario: d.usuario || null,
+        });
+      }
+    }
+
+    const { data: recontado } = await sb.from("ti_ventas").select("pagado").eq("id", id).single();
+    pagado = r2(Number(recontado?.pagado ?? 0));
+  }
+
+  // 8. Estado final según lo que quedó cobrado
+  await sb
+    .from("ti_ventas")
+    .update({
+      estado: pagado >= total - 0.01 ? "pagada" : pagado > 0 ? "parcial" : "pendiente",
+    })
+    .eq("id", id);
+
+  const { data: vista } = await sb.from("ti_v_ventas").select("*").eq("id", id).single();
+  return vista;
+}
+
+/**
+ * Borra una factura de forma definitiva.
+ * Devuelve la mercancía, quita el dinero de la caja y elimina el registro.
+ * Para conservar el historial usa anularVenta() en su lugar.
+ */
+export async function eliminarVenta(id: string, usuario?: string) {
+  const sb = createAdminClient();
+
+  const { data: venta } = await sb.from("ti_ventas").select("*").eq("id", id).single();
+  if (!venta) throw new Error("Factura no encontrada");
+
+  // 1. Devolver la mercancía (solo si no estaba ya anulada)
+  if (venta.estado !== "anulada") {
+    await devolverInventario(id, venta.codigo, usuario);
+  }
+
+  // 2. Sacar de la caja el dinero que había entrado por esta factura
+  const { data: cobros } = await sb
+    .from("ti_cobros").select("id,monto,recibo").eq("venta_id", id).eq("anulado", false);
+  const sesionBorrar = await sesionCajaAbierta();
+  for (const c of (cobros ?? []) as { id: string; monto: number; recibo: string }[]) {
+    await sb.from("ti_caja_movimientos").insert({
+      sesion_id: sesionBorrar,
+      tipo: "egreso",
+      categoria: "anulacion",
+      concepto: `Reverso del cobro ${c.recibo} (factura ${venta.codigo} eliminada)`,
+      monto: c.monto,
+      origen: "manual",
+      origen_id: c.id,
+      usuario: usuario || null,
+    });
+  }
+
+  // 3. Soltar las referencias en caja para no perder el rastro del movimiento
+  await sb.from("ti_caja_movimientos").update({ origen_id: null }).eq("origen_id", id);
+
+  // 4. Borrar: los items y los cobros se van en cascada
+  const { error } = await sb.from("ti_ventas").delete().eq("id", id);
+  if (error) throw error;
+
+  return { ok: true, codigo: venta.codigo };
 }

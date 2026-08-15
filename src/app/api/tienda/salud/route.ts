@@ -23,6 +23,11 @@ export async function GET() {
     "ti_caja_sesiones", "ti_caja_movimientos", "ti_gastos",
   ];
 
+  // Las pacas y las categorías vienen del script tienda_pacas.sql, que es
+  // aparte: si falta, se avisa sin marcar todo el módulo como roto.
+  const tablasPacas = ["ti_categorias"];
+  const vistasPacas = ["ti_v_lotes", "ti_v_ganancia_categoria"];
+
   try {
     const sb = createAdminClient();
     const resultado: Record<string, string> = {};
@@ -31,13 +36,24 @@ export async function GET() {
       resultado[t] = error ? `ERROR: ${error.message}` : `ok (${count ?? 0} filas)`;
     }
     const faltantes = Object.entries(resultado).filter(([, v]) => v.startsWith("ERROR"));
+
+    const pacas: Record<string, string> = {};
+    for (const t of [...tablasPacas, ...vistasPacas]) {
+      const { error, count } = await sb.from(t).select("*", { count: "exact", head: true });
+      pacas[t] = error ? `ERROR: ${error.message}` : `ok (${count ?? 0} filas)`;
+    }
+    const faltanPacas = Object.values(pacas).some((v) => v.startsWith("ERROR"));
+
+    const mensajes: string[] = [];
+    if (faltantes.length > 0) mensajes.push("Ejecuta supabase/tienda_schema.sql en el SQL Editor de Supabase.");
+    if (faltanPacas) mensajes.push("Ejecuta supabase/tienda_pacas.sql para habilitar pacas y categorías.");
+
     return NextResponse.json({
       ok: faltantes.length === 0,
       entorno,
       tablas: resultado,
-      mensaje: faltantes.length === 0
-        ? "MAXMATT SHOP listo."
-        : "Ejecuta supabase/tienda_schema.sql en el SQL Editor de Supabase.",
+      pacas,
+      mensaje: mensajes.length === 0 ? "MAXMATT SHOP listo." : mensajes.join(" "),
     });
   } catch (err) {
     return NextResponse.json(

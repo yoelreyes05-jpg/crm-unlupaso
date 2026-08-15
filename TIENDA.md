@@ -25,7 +25,17 @@ Supabase → **SQL Editor** → pegar y ejecutar completo:
 supabase/tienda_schema.sql
 ```
 
-Crea 14 tablas, 10 vistas y los triggers de negocio. Es idempotente. Después verifica en el navegador:
+Crea 14 tablas, 10 vistas y los triggers de negocio. Es idempotente.
+
+Después, para las **pacas y las categorías**, ejecutar también:
+
+```
+supabase/tienda_pacas.sql
+```
+
+Agrega la tabla `ti_categorias` (con Ropa nueva, Ropa usada, Calzado, Accesorios, Hogar y Varios ya creadas), los campos de lote en `ti_productos` y las vistas `ti_v_lotes` y `ti_v_ganancia_categoria`. También es idempotente: se puede volver a correr cuando haga falta.
+
+Después verifica en el navegador:
 
 ```
 /api/tienda/salud
@@ -49,6 +59,35 @@ Sin login, igual que los otros módulos.
 
 ### Inventario
 
+El inventario tiene tres pestañas: **Pacas y lotes**, **Productos sueltos** y **Categorías**.
+
+#### Pacas y lotes
+
+Para una tienda de pacas no tiene sentido entrar la ropa pieza por pieza. Se registra la **paca completa**: nombre, categoría, lo que costó el fardo, cuántas piezas trae y a cuánto se vende cada pieza. Con eso el sistema:
+
+1. Divide el costo del fardo entre las piezas → **costo por pieza**.
+2. Carga el inventario de una sola vez con todas las piezas.
+3. Cada venta descuenta su parte de la inversión.
+
+**Ejemplo del dueño:** una paca que costó RD$ 3,000 y trae 100 piezas → cada pieza carga RD$ 30 de costo. Si se vende a RD$ 200, con **15 piezas ya se recuperaron los 3,000** y de ahí en adelante todo lo que entre es ganancia del grupo. Vendiendo las 85 restantes al mismo precio, la ganancia final de esa paca sería RD$ 17,000.
+
+La pantalla muestra, por cada paca: piezas que quedan, piezas vendidas, **barra de recuperación de la inversión**, cuánto falta para que la paca se pague sola, la ganancia ya cobrada y la proyectada. El estado va cambiando solo:
+
+| Estado | Qué significa |
+|---|---|
+| `sin vender` | Todavía no se ha vendido ninguna pieza |
+| `en venta` | Ya se vendió algo pero no se recupera la inversión |
+| `ya se pagó sola` | Lo vendido cubre el costo del fardo; el resto es ganancia |
+| `agotada` | No quedan piezas |
+
+Si hay que corregir la existencia de una paca (se dañó una pieza, salió una de más), se usa **Movimientos → Ajuste por conteo**. El costo por pieza no se toca: siempre sale de dividir el costo del lote entre las piezas.
+
+#### Categorías
+
+Ropa nueva, ropa usada, calzado… Sirven para agrupar tanto pacas como productos sueltos. Abajo de la lista hay una tabla de **ganancia por categoría**: unidades vendidas, vendido, costo, ganancia y valor en stock de cada grupo, para saber qué línea deja más.
+
+#### Productos sueltos
+
 Cada producto tiene costo, precio de venta y ITBIS propio. El **precio se guarda SIN ITBIS** y el impuesto se suma encima: un producto de RD$ 2,000 con 18 % factura RD$ 2,360. Si es exento, se pone ITBIS en 0.
 
 Toda entrada y salida queda en el **kardex** con el stock antes y después, así que siempre se puede reconstruir por qué hay lo que hay. Desde el botón *Movimientos* de cada producto se registran entradas, salidas, devoluciones, mermas y ajustes por conteo.
@@ -64,7 +103,21 @@ Se busca el producto por nombre o código, se arma la factura y se elige contado
 
 En ambos casos el inventario se descuenta solo. La factura se imprime desde su propia pantalla.
 
-Anular una factura devuelve la mercancía al inventario y revierte los cobros en caja. No se borra: queda marcada como anulada.
+Al buscar el producto se puede filtrar por **grupo** (categoría). Eligiendo un grupo se listan sus artículos sin escribir nada, así se vende por grupo sin recordar el nombre de cada pieza. Las pacas salen marcadas con una etiqueta *paca*.
+
+#### Modificar una factura
+
+Desde la factura, el botón **Modificar** abre la misma pantalla de venta con todo cargado. Se cambian líneas, cantidades, precios o datos del cliente y se guarda. Por detrás:
+
+- Se devuelve al inventario todo lo que había salido y se vuelve a descontar con las líneas nuevas.
+- Si es de contado, la caja se cuadra sola: si el total subió entra la diferencia, si bajó se reversan los cobros y se cobra el total nuevo (queda el rastro de ambos movimientos).
+- Los cobros ya recibidos en una venta a crédito se respetan; solo se recalcula el estado.
+- Nada se toca si la mercancía no alcanza: se valida **antes** de mover nada.
+
+#### Anular vs. Eliminar
+
+- **Anular** devuelve la mercancía al inventario y revierte los cobros en caja. La factura **no se borra**: queda en el historial marcada como anulada.
+- **Eliminar** la borra por completo: devuelve la mercancía, saca el dinero de la caja y quita el registro de la base de datos. No se puede recuperar. Se usa cuando la factura se creó por error y no debe aparecer ni siquiera anulada.
 
 ### Compras
 
@@ -107,18 +160,19 @@ Ficha con cédula/RNC, contacto y **crédito**: si se le permite, cuánto es el 
 |---|---|
 | Configuración | `ti_config` |
 | Comercial | `ti_clientes`, `ti_proveedores` |
-| Inventario | `ti_productos`, `ti_movimientos_inventario` |
+| Inventario | `ti_productos`, `ti_movimientos_inventario`, `ti_categorias` |
 | Compras | `ti_compras`, `ti_compra_items` |
 | Ventas | `ti_ventas`, `ti_venta_items` |
 | Cobros y pagos | `ti_cobros`, `ti_pagos_proveedor` |
 | Caja | `ti_caja_sesiones`, `ti_caja_movimientos` |
 | Gastos | `ti_gastos` |
 
-Vistas: `ti_v_productos`, `ti_v_ventas`, `ti_v_cuentas_cobrar`, `ti_v_compras`, `ti_v_cuentas_pagar`, `ti_v_clientes`, `ti_v_caja_actual`, `ti_v_resultados_mensuales`, `ti_v_dashboard`, `ti_v_top_productos`.
+Vistas: `ti_v_productos`, `ti_v_ventas`, `ti_v_cuentas_cobrar`, `ti_v_compras`, `ti_v_cuentas_pagar`, `ti_v_clientes`, `ti_v_caja_actual`, `ti_v_resultados_mensuales`, `ti_v_dashboard`, `ti_v_top_productos`, `ti_v_lotes`, `ti_v_ganancia_categoria`.
 
 ## Automatismos en la base de datos
 
 - El kardex mueve el stock del producto y actualiza su costo en las entradas.
+- En una **paca** el costo por pieza se calcula solo (`costo_lote / piezas_lote`) y las entradas de inventario no lo pisan.
 - Los totales de facturas y compras se recalculan al cambiar sus líneas.
 - Un cobro actualiza el saldo y el estado de la factura, y entra a la caja abierta.
 - Un pago a proveedor actualiza la compra y sale de caja.
@@ -135,10 +189,11 @@ src/lib/tienda/motor.ts        → ventas, compras y caja
 src/lib/tienda/crud.ts         → helper CRUD (solo acepta tablas ti_*)
 src/lib/tienda/tablas.ts       → definición de cada recurso
 supabase/tienda_schema.sql     → migración completa
+supabase/tienda_pacas.sql      → categorías, pacas y sus vistas
 ```
 
 Para agregar un recurso: declararlo en `src/lib/tienda/tablas.ts` y crear un `route.ts` de tres líneas con `coleccion()` / `recurso()` — igual que en préstamos y repostería.
 
 ## Seguridad
 
-RLS activo **sin políticas** en las 14 tablas: nadie las lee con la anon key desde el navegador. La app entra por `/api/tienda/*` con la service role key.
+RLS activo **sin políticas** en las 15 tablas: nadie las lee con la anon key desde el navegador. La app entra por `/api/tienda/*` con la service role key.

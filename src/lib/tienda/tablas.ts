@@ -43,22 +43,44 @@ export const PROVEEDORES: CrudOptions = {
 export const PRODUCTOS: CrudOptions = {
   table: "ti_productos",
   fields: [
-    "codigo_barra", "nombre", "descripcion", "categoria", "marca", "unidad",
+    "codigo_barra", "nombre", "descripcion", "categoria", "categoria_id", "marca", "unidad",
     "costo", "precio", "itbis_pct", "stock_minimo", "ubicacion",
     "proveedor_id", "imagen_url", "activo", "usuario",
+    // Pacas / lotes: el costo por pieza lo calcula solo la base de datos
+    "tipo_inventario", "costo_lote", "piezas_lote", "lote_codigo", "fecha_lote", "precio_sugerido",
   ],
   required: ["nombre"],
-  searchFields: ["nombre", "descripcion", "codigo", "codigo_barra", "marca"],
-  filters: ["activo", "categoria", "proveedor_id"],
+  searchFields: ["nombre", "descripcion", "codigo", "codigo_barra", "marca", "lote_codigo"],
+  filters: ["activo", "categoria", "categoria_id", "proveedor_id", "tipo_inventario"],
   orderBy: "nombre",
   ascending: true,
+};
+
+export const CATEGORIAS: CrudOptions = {
+  table: "ti_categorias",
+  fields: ["nombre", "descripcion", "color", "orden", "activo", "usuario"],
+  required: ["nombre"],
+  searchFields: ["nombre", "descripcion"],
+  filters: ["activo"],
+  orderBy: "orden",
+  ascending: true,
+};
+
+/** Vista de pacas: cuánto costó el lote, cuánto se ha recuperado y qué falta. */
+export const LOTES_VISTA: CrudOptions = {
+  table: "ti_v_lotes",
+  fields: [],
+  searchFields: ["nombre", "codigo", "lote_codigo", "categoria_nombre"],
+  filters: ["activo", "categoria_id", "estado_lote", "proveedor_id"],
+  orderBy: "fecha_lote",
+  ascending: false,
 };
 
 export const PRODUCTOS_VISTA: CrudOptions = {
   table: "ti_v_productos",
   fields: [],
-  searchFields: ["nombre", "descripcion", "codigo", "codigo_barra", "marca"],
-  filters: ["activo", "categoria", "estado_stock", "proveedor_id"],
+  searchFields: ["nombre", "descripcion", "codigo", "codigo_barra", "marca", "lote_codigo"],
+  filters: ["activo", "categoria", "categoria_id", "estado_stock", "proveedor_id", "tipo_inventario"],
   orderBy: "nombre",
   ascending: true,
 };
@@ -198,4 +220,6 @@ export const VISTAS_PERMITIDAS = [
   "ti_v_resultados_mensuales",
   "ti_v_dashboard",
   "ti_v_top_productos",
+  "ti_v_lotes",
+  "ti_v_ganancia_categoria",
 ] as const;

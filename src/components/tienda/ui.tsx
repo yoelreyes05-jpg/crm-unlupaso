@@ -528,8 +528,9 @@ export function CrudPage({
     if (busqueda) p.set("search", busqueda);
     for (const [k, v] of Object.entries(filtroVals)) if (v) p.set(k, v);
     const s = p.toString();
-    return s ? `?${s}` : "";
-  }, [busqueda, filtroVals]);
+    // La ruta puede traer ya un filtro fijo (ej. /productos?tipo_inventario=unitario)
+    return s ? `${ruta.includes("?") ? "&" : "?"}${s}` : "";
+  }, [busqueda, filtroVals, ruta]);
 
   const cargar = useCallback(async () => {
     setCargando(true); setError("");

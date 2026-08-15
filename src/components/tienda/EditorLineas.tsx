@@ -17,6 +17,12 @@ export interface ProductoOpcion {
   precio: number;
   itbis_pct: number;
   stock_actual: number;
+  /** Datos de agrupación: vienen de ti_v_productos */
+  categoria_id?: string | null;
+  categoria_nombre?: string | null;
+  categoria_color?: string | null;
+  tipo_inventario?: string | null;
+  lote_codigo?: string | null;
 }
 
 export interface Linea {
@@ -57,18 +63,33 @@ export function EditorLineas({
   simbolo?: string;
 }) {
   const [busqueda, setBusqueda] = useState("");
+  const [grupo, setGrupo] = useState("");
+
+  // Grupos disponibles según lo que tenga el catálogo
+  const grupos = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of productos) {
+      if (p.categoria_nombre) m.set(String(p.categoria_id ?? p.categoria_nombre), p.categoria_nombre);
+    }
+    return [...m.entries()].map(([value, label]) => ({ value, label }));
+  }, [productos]);
 
   const encontrados = useMemo(() => {
     const b = busqueda.trim().toLowerCase();
-    if (!b) return [];
+    // Al elegir un grupo se listan sus artículos aunque no se escriba nada:
+    // así se vende por grupo sin tener que recordar el nombre de cada pieza.
+    if (!b && !grupo) return [];
     return productos
+      .filter((p) => !grupo || String(p.categoria_id ?? p.categoria_nombre ?? "") === grupo)
       .filter(
         (p) =>
+          !b ||
           p.nombre.toLowerCase().includes(b) ||
-          p.codigo.toLowerCase().includes(b)
+          p.codigo.toLowerCase().includes(b) ||
+          (p.lote_codigo ?? "").toLowerCase().includes(b)
       )
-      .slice(0, 8);
-  }, [busqueda, productos]);
+      .slice(0, grupo && !b ? 30 : 8);
+  }, [busqueda, productos, grupo]);
 
   function agregar(p: ProductoOpcion) {
     const ya = lineas.findIndex((l) => l.producto_id === p.id);
@@ -111,13 +132,27 @@ export function EditorLineas({
   return (
     <div>
       <div style={{ position: "relative", marginBottom: 14 }}>
-        <Etiqueta>Buscar producto por nombre o código</Etiqueta>
-        <input
-          style={inputBase}
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Escribe para buscar…"
-        />
+        <Etiqueta>Buscar producto por nombre, código o lote</Etiqueta>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            style={{ ...inputBase, flex: "1 1 220px" }}
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Escribe para buscar…"
+          />
+          {grupos.length > 0 && (
+            <select
+              style={{ ...inputBase, flex: "0 1 200px" }}
+              value={grupo}
+              onChange={(e) => setGrupo(e.target.value)}
+            >
+              <option value="">Todos los grupos</option>
+              {grupos.map((g) => (
+                <option key={g.value} value={g.value}>{g.label}</option>
+              ))}
+            </select>
+          )}
+        </div>
         {encontrados.length > 0 && (
           <div style={{
             position: "absolute", zIndex: 20, top: "100%", left: 0, right: 0, marginTop: 4,
@@ -140,9 +175,18 @@ export function EditorLineas({
                   }}
                 >
                   <span>
-                    <strong style={{ fontSize: 13.5 }}>{p.nombre}</strong>
+                    <strong style={{ fontSize: 13.5 }}>
+                      {p.nombre}
+                      {p.tipo_inventario === "lote" && (
+                        <span style={{
+                          marginLeft: 6, fontSize: 10, fontWeight: 800, color: "#fff",
+                          background: T.acento, borderRadius: 5, padding: "1px 5px",
+                        }}>paca</span>
+                      )}
+                    </strong>
                     <span style={{ display: "block", fontSize: 11, color: T.suave }}>
-                      {p.codigo} · existencia {Number(p.stock_actual)} {p.unidad}
+                      {[p.categoria_nombre, p.lote_codigo || p.codigo].filter(Boolean).join(" · ")}
+                      {" · existencia "}{Number(p.stock_actual)} {p.unidad}
                     </span>
                   </span>
                   <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>

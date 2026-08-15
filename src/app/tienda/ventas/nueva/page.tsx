@@ -17,6 +17,11 @@ interface ClienteOpcion {
   permite_credito: boolean; credito_disponible: number; dias_credito: number;
 }
 
+interface ItemGuardado {
+  producto_id: string; descripcion: string; cantidad: number; precio: number;
+  costo: number; itbis_pct: number; descuento: number;
+}
+
 export default function Pagina() {
   return (
     <Suspense fallback={<Cargando />}>
@@ -28,11 +33,16 @@ export default function Pagina() {
 function NuevaVenta() {
   const router = useRouter();
   const params = useSearchParams();
+  // Cuando viene ?editar=<id> la pantalla es la misma pero carga la factura
+  // existente y al guardar la actualiza en vez de crear una nueva.
+  const editarId = params.get("editar");
+  const editando = !!editarId;
 
   const [productos, setProductos] = useState<ProductoOpcion[]>([]);
   const [clientes, setClientes] = useState<ClienteOpcion[]>([]);
   const [simbolo, setSimbolo] = useState("RD$");
   const [diasCredito, setDiasCredito] = useState(30);
+  const [codigo, setCodigo] = useState("");
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
@@ -48,6 +58,9 @@ function NuevaVenta() {
     notas: "",
     fecha_vence: "",
   });
+  // Al editar no queremos que el efecto de "sugerir vencimiento" pise la
+  // fecha que ya tenía la factura antes de que el usuario toque algo.
+  const [listoParaSugerir, setListoParaSugerir] = useState(!editando);
 
   useEffect(() => {
     (async () => {
@@ -57,30 +70,77 @@ function NuevaVenta() {
           api<{ data: ClienteOpcion[] }>("/clientes?activo=true&limit=2000").catch(() => ({ data: [] })),
           api<{ data: { simbolo_moneda: string; dias_credito: number } }>("/config").catch(() => null),
         ]);
-        setProductos(p.data ?? []);
+        const listaProductos = p.data ?? [];
+        setProductos(listaProductos);
         setClientes(c.data ?? []);
         if (cfg?.data) {
           setSimbolo(cfg.data.simbolo_moneda ?? "RD$");
           setDiasCredito(Number(cfg.data.dias_credito ?? 30));
         }
+
+        if (editarId) {
+          const r = await api<{
+            data: {
+              venta: Record<string, unknown>;
+              items: (ItemGuardado & { id: string })[];
+            };
+          }>(`/ventas/${editarId}`);
+          const v = r.data.venta;
+          if (String(v.estado) === "anulada") {
+            setError("Esta factura está anulada: ya no se puede modificar.");
+          }
+          setCodigo(String(v.codigo ?? ""));
+          setF({
+            cliente_id: (v.cliente_id as string) ?? "",
+            fecha: String(v.fecha ?? hoyISO()).slice(0, 10),
+            condicion: (v.condicion as "contado" | "credito") ?? "contado",
+            metodo_pago: (v.metodo_pago as string) ?? "efectivo",
+            ncf: (v.ncf as string) ?? "",
+            descuento: Number(v.descuento ?? 0),
+            notas: (v.notas as string) ?? "",
+            fecha_vence: v.fecha_vence ? String(v.fecha_vence).slice(0, 10) : "",
+          });
+          // El stock que muestra el editor debe contar lo que esta misma
+          // factura ya descontó, porque al guardar se devuelve primero.
+          setLineas(
+            (r.data.items ?? []).map((it) => {
+              const prod = listaProductos.find((x) => x.id === it.producto_id);
+              return {
+                producto_id: it.producto_id,
+                descripcion: it.descripcion,
+                cantidad: Number(it.cantidad),
+                precio: Number(it.precio),
+                costo: Number(it.costo),
+                itbis_pct: Number(it.itbis_pct),
+                descuento: Number(it.descuento ?? 0),
+                unidad: prod?.unidad ?? "und",
+                stock: Number(prod?.stock_actual ?? 0) + Number(it.cantidad),
+              };
+            })
+          );
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Error al cargar");
       } finally {
         setCargando(false);
+        setListoParaSugerir(true);
       }
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editarId]);
 
   // Al pasar a crédito, sugerir la fecha de vencimiento
   useEffect(() => {
+    if (!listoParaSugerir) return;
     if (f.condicion !== "credito") return;
+    if (editando && f.fecha_vence) return;
     const cli = clientes.find((c) => c.id === f.cliente_id);
     const dias = cli?.dias_credito ?? diasCredito;
     const d = new Date(f.fecha + "T12:00:00");
     d.setDate(d.getDate() + dias);
     setF((s) => ({ ...s, fecha_vence: d.toISOString().slice(0, 10) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f.condicion, f.cliente_id, f.fecha, diasCredito]);
+  }, [f.condicion, f.cliente_id, f.fecha, diasCredito, listoParaSugerir]);
 
   if (cargando) return <Cargando />;
 
@@ -102,47 +162,61 @@ function NuevaVenta() {
     }
 
     setGuardando(true);
+    const cuerpo = {
+      cliente_id: f.cliente_id || null,
+      fecha: f.fecha,
+      ncf: f.ncf || null,
+      condicion: f.condicion,
+      fecha_vence: f.condicion === "credito" ? f.fecha_vence : null,
+      descuento: f.descuento,
+      metodo_pago: f.metodo_pago,
+      notas: f.notas || null,
+      items: lineas.map((l) => ({
+        producto_id: l.producto_id,
+        descripcion: l.descripcion,
+        cantidad: l.cantidad,
+        precio: l.precio,
+        costo: l.costo,
+        itbis_pct: l.itbis_pct,
+        descuento: l.descuento,
+      })),
+    };
+
     try {
-      const r = await api<{ data: { id: string } }>("/ventas", {
-        metodo: "POST",
-        body: {
-          cliente_id: f.cliente_id || null,
-          fecha: f.fecha,
-          ncf: f.ncf || null,
-          condicion: f.condicion,
-          fecha_vence: f.condicion === "credito" ? f.fecha_vence : null,
-          descuento: f.descuento,
-          metodo_pago: f.metodo_pago,
-          notas: f.notas || null,
-          items: lineas.map((l) => ({
-            producto_id: l.producto_id,
-            descripcion: l.descripcion,
-            cantidad: l.cantidad,
-            precio: l.precio,
-            costo: l.costo,
-            itbis_pct: l.itbis_pct,
-            descuento: l.descuento,
-          })),
-        },
-      });
-      router.push(`/tienda/ventas/${r.data.id}`);
+      if (editarId) {
+        await api(`/ventas/${editarId}`, { metodo: "PUT", body: cuerpo });
+        router.push(`/tienda/ventas/${editarId}`);
+      } else {
+        const r = await api<{ data: { id: string } }>("/ventas", { metodo: "POST", body: cuerpo });
+        router.push(`/tienda/ventas/${r.data.id}`);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo registrar la venta");
+      setError(e instanceof Error ? e.message : "No se pudo guardar la venta");
       setGuardando(false);
     }
   }
 
+  const textoBoton = guardando
+    ? "Guardando…"
+    : editando ? "Guardar cambios" : "Registrar venta";
+
   return (
     <div>
-      <Link href="/tienda/ventas" style={{ fontSize: 12, color: T.acento, textDecoration: "none" }}>
-        ← Ventas
+      <Link
+        href={editarId ? `/tienda/ventas/${editarId}` : "/tienda/ventas"}
+        style={{ fontSize: 12, color: T.acento, textDecoration: "none" }}
+      >
+        ← {editarId ? "Volver a la factura" : "Ventas"}
       </Link>
       <div style={{ height: 8 }} />
       <Titulo
-        texto="Nueva venta"
+        texto={editando ? `Modificar ${codigo || "factura"}` : "Nueva venta"}
+        sub={editando
+          ? "Los cobros ya recibidos se conservan. El inventario se reajusta solo al guardar."
+          : undefined}
         acciones={
           <Btn onClick={guardar} disabled={guardando || !lineas.length || excedeStock}>
-            {guardando ? "Registrando…" : "Registrar venta"}
+            {textoBoton}
           </Btn>
         }
       />
@@ -235,13 +309,23 @@ function NuevaVenta() {
             onDescuento={(v) => setF({ ...f, descuento: v })}
           />
           <div style={{ fontSize: 12, color: T.suave, lineHeight: 1.5 }}>
-            {f.condicion === "contado"
-              ? "Al registrarla, la venta se cobra completa y el dinero entra a la caja abierta."
-              : "Al registrarla, queda como cuenta por cobrar. Los abonos se registran desde la factura."}
-            <div style={{ marginTop: 6 }}>El inventario se descuenta automáticamente.</div>
+            {editando ? (
+              <>
+                Al guardar se devuelve al inventario lo que tenía la factura y se
+                vuelve a descontar con las líneas nuevas.
+                <div style={{ marginTop: 6 }}>Lo que ya se cobró no se toca.</div>
+              </>
+            ) : (
+              <>
+                {f.condicion === "contado"
+                  ? "Al registrarla, la venta se cobra completa y el dinero entra a la caja abierta."
+                  : "Al registrarla, queda como cuenta por cobrar. Los abonos se registran desde la factura."}
+                <div style={{ marginTop: 6 }}>El inventario se descuenta automáticamente.</div>
+              </>
+            )}
           </div>
           <Btn onClick={guardar} disabled={guardando || !lineas.length || excedeStock}>
-            {guardando ? "Registrando…" : "Registrar venta"}
+            {textoBoton}
           </Btn>
         </div>
       </div>
