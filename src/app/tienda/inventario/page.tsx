@@ -209,6 +209,13 @@ function Pacas() {
             </div>
           );
         }}
+        borrar={{
+          query: "definitivo=1",
+          confirmar: (f) =>
+            `¿Borrar la paca «${f.nombre}» por completo?\n\n` +
+            "Desaparece del inventario junto con sus movimientos y no se puede recuperar.\n" +
+            "Solo se puede si nunca se le vendió ni se le compró nada.",
+        }}
         extraAcciones={(f, recargar) => (
           <button
             onClick={() => { setModal(f); setRecarga(() => recargar); }}
@@ -364,6 +371,13 @@ function Productos() {
             </div>
           );
         }}
+        borrar={{
+          query: "definitivo=1",
+          confirmar: (f) =>
+            `¿Borrar «${f.nombre}» por completo?\n\n` +
+            "Desaparece del inventario junto con sus movimientos y no se puede recuperar.\n" +
+            "Solo se puede si nunca se vendió ni se compró.",
+        }}
         extraAcciones={(f, recargar) => (
           <button
             onClick={() => { setModal(f); setRecarga(() => recargar); }}
@@ -431,6 +445,11 @@ function Categorias() {
           { name: "activo", label: "Estado",
             fmt: (v) => <Badge texto={v ? "activa" : "inactiva"} tono={v ? "ok" : "neutro"} /> },
         ]}
+        borrar={{
+          confirmar: (f) =>
+            `¿Borrar la categoría «${f.nombre}»?\n\n` +
+            "Los productos que la tengan se quedan sin categoría, pero no se borra ninguno.",
+        }}
       />
 
       <div style={{ height: 18 }} />

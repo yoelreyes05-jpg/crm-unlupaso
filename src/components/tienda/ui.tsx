@@ -498,7 +498,7 @@ export function Tabla({
 export function CrudPage({
   titulo, icono, ruta, campos, columnas, buscar = true,
   filtros, extraAcciones, onFila, textoNuevo, subtitulo, encabezado, filaRoja,
-  encabezadoFormulario,
+  encabezadoFormulario, borrar,
 }: {
   titulo: string;
   icono: string;
@@ -516,6 +516,15 @@ export function CrudPage({
   /** Bloque que se dibuja arriba del formulario. Recibe una función para
    *  rellenar campos — la usa el selector de contactos del teléfono. */
   encabezadoFormulario?: (llenar: (valores: Record<string, unknown>) => void) => ReactNode;
+  /** Activa el botón Eliminar de cada fila. */
+  borrar?: {
+    /** Texto del cuadro de confirmación. */
+    confirmar: (fila: Record<string, unknown>) => string;
+    /** Query que se le agrega al DELETE, ej. "definitivo=1". */
+    query?: string;
+    /** Nombre que se muestra en el botón. Por defecto "Eliminar". */
+    etiqueta?: string;
+  };
 }) {
   const [filas, setFilas]         = useState<Record<string, unknown>[]>([]);
   const [cargando, setCargando]   = useState(true);
@@ -527,6 +536,8 @@ export function CrudPage({
   const [valores, setValores]     = useState<Record<string, unknown>>({});
   const [remotas, setRemotas]     = useState<Record<string, Opcion[]>>({});
   const [guardando, setGuardando] = useState(false);
+  const [borrando, setBorrando] = useState<string | null>(null);
+  const [aviso, setAviso] = useState("");
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -598,6 +609,24 @@ export function CrudPage({
     }
   }
 
+  async function borrarFila(fila: Record<string, unknown>) {
+    if (!borrar) return;
+    if (!confirm(borrar.confirmar(fila))) return;
+    setBorrando(String(fila.id)); setError(""); setAviso("");
+    try {
+      const r = await api<{ message?: string }>(
+        `${ruta.split("?")[0]}/${fila.id}${borrar.query ? `?${borrar.query}` : ""}`,
+        { metodo: "DELETE" }
+      );
+      setAviso(r.message ?? "Registro eliminado.");
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo eliminar");
+    } finally {
+      setBorrando(null);
+    }
+  }
+
   return (
     <div>
       <Titulo
@@ -630,6 +659,7 @@ export function CrudPage({
         ))}
       </div>
 
+      {aviso && <Aviso texto={aviso} tono="ok" />}
       {error && <Aviso texto={error} />}
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
@@ -646,6 +676,20 @@ export function CrudPage({
                   onClick={() => abrirEditar(f)}
                   style={{ background: "transparent", border: "none", color: T.acento, cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}
                 >Editar</button>
+                {borrar && (
+                  <button
+                    onClick={() => borrarFila(f)}
+                    disabled={borrando === String(f.id)}
+                    style={{
+                      background: "transparent", border: "none", color: T.err,
+                      cursor: borrando === String(f.id) ? "wait" : "pointer",
+                      fontSize: 12.5, fontWeight: 700,
+                      opacity: borrando === String(f.id) ? 0.5 : 1,
+                    }}
+                  >
+                    {borrando === String(f.id) ? "Borrando…" : (borrar.etiqueta ?? "Eliminar")}
+                  </button>
+                )}
               </div>
             )}
           />

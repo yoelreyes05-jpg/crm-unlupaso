@@ -82,6 +82,14 @@ La pantalla muestra, por cada paca: piezas que quedan, piezas vendidas, **barra 
 
 Si hay que corregir la existencia de una paca (se dañó una pieza, salió una de más), se usa **Movimientos → Ajuste por conteo**. El costo por pieza no se toca: siempre sale de dividir el costo del lote entre las piezas.
 
+#### Borrar un producto o una paca
+
+Cada fila del inventario tiene **Eliminar**. Si el artículo se metió por equivocación y **nunca se vendió ni se compró**, se borra por completo junto con sus movimientos de inventario.
+
+Si ya aparece en alguna factura, el sistema **no lo borra** y lo dice: quitarlo dejaría esas facturas sin cuadrar. En ese caso se usa *Editar* y se le quita la marca de **Activo** — deja de salir en el catálogo y en las ventas, y los documentos viejos quedan intactos.
+
+Borrar una **categoría** no borra ningún producto: los que la tuvieran simplemente quedan sin categoría.
+
 #### Categorías
 
 Ropa nueva, ropa usada, calzado… Sirven para agrupar tanto pacas como productos sueltos. Abajo de la lista hay una tabla de **ganancia por categoría**: unidades vendidas, vendido, costo, ganancia y valor en stock de cada grupo, para saber qué línea deja más.
