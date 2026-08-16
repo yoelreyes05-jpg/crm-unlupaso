@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge, CrudPage, T, type Campo, type Columna } from "@/components/tienda/ui";
+import { BarraContactos } from "@/components/tienda/SelectorContacto";
 
 const campos: Campo[] = [
   { name: "nombre",       label: "Nombre del proveedor", requerido: true, ancho: 2 },
@@ -40,6 +41,25 @@ export default function ProveedoresTienda() {
       filtros={[
         { name: "activo", label: "Estado", opciones: [{ value: "true", label: "Activos" }, { value: "false", label: "Inactivos" }] },
       ]}
+      encabezadoFormulario={(llenar) => (
+        <BarraContactos
+          botones={[
+            {
+              etiqueta: "Datos del proveedor",
+              onElegir: (c) => llenar({
+                nombre: c.nombre,
+                telefono: c.telefono,
+                email: c.email,
+                direccion: c.direccion,
+              }),
+            },
+            {
+              etiqueta: "Persona de contacto",
+              onElegir: (c) => llenar({ contacto: c.nombre, telefono: c.telefono }),
+            },
+          ]}
+        />
+      )}
     />
   );
 }

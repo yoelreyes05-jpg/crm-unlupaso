@@ -180,6 +180,18 @@ Solo lo cobrado en efectivo afecta el cajón; transferencias y tarjetas se lleva
 
 ### Clientes
 
+#### Traer contactos del teléfono
+
+Al crear un cliente (o un proveedor) aparece arriba del formulario la barra **Desde el teléfono**. Con un toque abre la agenda del celular y copia nombre, teléfono, correo y dirección al formulario. Nada se sube: los datos se leen en el propio teléfono y solo se rellenan los campos, que puedes corregir antes de guardar.
+
+- **Android (Chrome o Samsung Internet):** abre la agenda nativa directamente. Pide permiso cada vez — no queda guardado.
+- **iPhone:** Safari no permite abrir la agenda desde una página web, así que va por tarjeta de contacto: en Contactos → *Compartir contacto* → *Guardar en Archivos*, y luego se elige ese `.vcf` desde el botón. Se puede compartir varios contactos a la vez y salen todos en una lista para escoger.
+- **Computadora:** igual que en iPhone, con un archivo `.vcf`.
+
+En proveedores hay dos botones: uno llena los datos de la empresa y el otro la persona de contacto.
+
+
+
 Ficha con cédula/RNC, contacto y **crédito**: si se le permite, cuánto es el límite y a cuántos días. La lista muestra cuánto ha comprado, cuánto debe y cuánto crédito le queda. Los que tienen deuda vencida salen en rojo.
 
 ---

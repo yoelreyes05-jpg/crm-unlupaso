@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge, CrudPage, RD, T, fecha, type Campo, type Columna } from "@/components/tienda/ui";
+import { BarraContactos } from "@/components/tienda/SelectorContacto";
 
 /** Clientes de MAXMATT SHOP — independientes de los del sistema de préstamos. */
 
@@ -58,6 +59,22 @@ export default function ClientesTienda() {
       campos={campos}
       columnas={columnas}
       filaRoja={(f) => Number(f.saldo_vencido) > 0}
+      encabezadoFormulario={(llenar) => (
+        <BarraContactos
+          botones={[
+            {
+              etiqueta: "Traer de la agenda",
+              onElegir: (c) => llenar({
+                nombre: c.nombre,
+                telefono: c.telefono,
+                telefono2: c.telefono2,
+                email: c.email,
+                direccion: c.direccion,
+              }),
+            },
+          ]}
+        />
+      )}
       filtros={[
         { name: "tipo", label: "Tipo", opciones: [{ value: "persona", label: "Persona" }, { value: "empresa", label: "Empresa" }] },
         { name: "activo", label: "Estado", opciones: [{ value: "true", label: "Activos" }, { value: "false", label: "Inactivos" }] },
