@@ -137,6 +137,30 @@ Debe 100,000 al 20 %.  Paga 20,000 de rédito.
 → La fecha de finalización del préstamo se corre un período
 ```
 
+**El rédito del próximo período se puede cambiar en ese mismo momento.** En el modal de solo rédito hay dos campos: la **tasa a aplicar** de aquí en adelante y el **rédito en pesos**, que se puede escribir a mano. Lo que se escriba a mano manda por encima de la tasa. También se puede elegir la fecha del próximo vencimiento y dejar la tasa nueva fija en el préstamo.
+
+Ejemplo real:
+
+```
+Mañana el cliente tiene que entregar 7,700 (5,000 de capital + 2,700 de rédito).
+Solo entrega los 2,700.
+→ Se queda debiendo los 5,000 de capital.
+→ Se le pone la tasa en 20 %  →  el rédito pasa a ser 1,000
+→ La cuota del próximo período queda en 6,000 (5,000 + 1,000)
+```
+
+Sin ese ajuste, el sistema le habría vuelto a cobrar 2,700 de rédito sobre los mismos 5,000.
+
+### Cambiar el rédito sin que haya pago
+
+En el botón **Cambiar rédito** (o en la fila de cada cuota) se le puede poner otro rédito a una cuota que todavía se debe, sin registrar ningún pago, sin tocar el capital y **sin cancelar el préstamo**.
+
+- Se elige la tasa y el sistema calcula el monto sobre el capital de esa cuota, o se escribe el monto directo.
+- El total del préstamo se ajusta exactamente por la diferencia — ni un peso más ni menos.
+- Se puede correr también la fecha de vencimiento y dejar la tasa nueva guardada.
+- Queda anotado en la cuota de cuánto a cuánto se cambió y el motivo.
+- No se permite dejar el rédito por debajo de lo que el cliente ya pagó en esa cuota, ni tocar cuotas pagadas, condonadas o reemplazadas por un reenganche.
+
 ### Reenganche
 
 El cliente todavía debe y necesita más dinero:
@@ -197,6 +221,7 @@ GET/POST        /api/prestamos/creditos            · /creditos/[id]   (POST cre
 GET             /api/prestamos/cuotas              · /cuotas/[id]
 GET/POST        /api/prestamos/pagos               · /pagos/[id]      (POST imputa mora → interés → capital)
 POST            /api/prestamos/solo-redito
+POST            /api/prestamos/ajustar-redito     · cambia el rédito de una cuota sin pago
 POST            /api/prestamos/reenganche
 POST            /api/prestamos/anular-pago
 GET             /api/prestamos/dashboard

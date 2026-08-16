@@ -385,6 +385,12 @@ export interface ParamsSoloInteres {
   frecuencia: Frecuencia
   diasPeriodo?: number
   prorrateo?: Prorrateo
+  /** Tasa distinta a aplicar de aquí en adelante (ej. bajar de 25 % a 20 %). */
+  tasaNueva?: number
+  /** Rédito en pesos puesto a mano; manda por encima de cualquier tasa. */
+  interesManual?: number
+  /** Fecha del próximo vencimiento si no se quiere la que sale por defecto. */
+  fechaProximoVencimiento?: string
 }
 
 export interface NuevaCuotaDiferida {
@@ -407,7 +413,11 @@ export function calcularSoloInteres(p: ParamsSoloInteres): NuevaCuotaDiferida | 
   if (capitalDiferido <= 0.01) return null
 
   const dias = p.diasPeriodo ?? diasDeFrecuencia(p.frecuencia)
-  const i = tasaPeriodo(p.tasaInteres, p.frecuencia, dias, p.prorrateo ?? 'divisor')
+  // La tasa nueva (si viene) es la que manda de aquí en adelante.
+  const tasa = p.tasaNueva !== undefined && p.tasaNueva !== null
+    ? num(p.tasaNueva)
+    : num(p.tasaInteres)
+  const i = tasaPeriodo(tasa, p.frecuencia, dias, p.prorrateo ?? 'divisor')
 
   const ultimaFecha = p.cuotas.reduce(
     (max, c) => (c.fecha_vencimiento > max ? c.fecha_vencimiento : max),
@@ -415,15 +425,39 @@ export function calcularSoloInteres(p: ParamsSoloInteres): NuevaCuotaDiferida | 
   )
   const ultimoNumero = p.cuotas.reduce((max, c) => Math.max(max, c.numero), p.cuota.numero)
 
-  const interes = r2(capitalDiferido * i)
+  // Si el prestamista escribe el rédito a mano, ese vale; si no, se calcula.
+  const interes = p.interesManual !== undefined && p.interesManual !== null
+    ? Math.max(0, r2(num(p.interesManual)))
+    : r2(capitalDiferido * i)
+
+  const vence = p.fechaProximoVencimiento
+    ? aISO(aFecha(p.fechaProximoVencimiento))
+    : aISO(sumarPeriodos(aFecha(ultimaFecha), 1, p.frecuencia, dias))
+
   return {
     numero: ultimoNumero + 1,
-    fecha_vencimiento: aISO(sumarPeriodos(aFecha(ultimaFecha), 1, p.frecuencia, dias)),
+    fecha_vencimiento: vence,
     capital: capitalDiferido,
     interes,
     total: r2(capitalDiferido + interes),
     saldo_despues: 0,
   }
+}
+
+/**
+ * Rédito sugerido para el próximo período sobre el capital que quedará
+ * pendiente. Sirve para llenar el campo antes de que el usuario lo cambie.
+ */
+export function reditoSugerido(p: {
+  capitalPendiente: number
+  tasaInteres: number
+  frecuencia: Frecuencia
+  diasPeriodo?: number
+  prorrateo?: Prorrateo
+}): number {
+  const dias = p.diasPeriodo ?? diasDeFrecuencia(p.frecuencia)
+  const i = tasaPeriodo(num(p.tasaInteres), p.frecuencia, dias, p.prorrateo ?? 'divisor')
+  return r2(Math.max(0, num(p.capitalPendiente)) * i)
 }
 
 /** Monto exacto que debe entregar el cliente para cubrir solo el rédito. */

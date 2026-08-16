@@ -7,6 +7,7 @@ import {
   distribuirPago,
   generarCronograma,
   r2,
+  reditoSugerido,
   repartirInteres,
   type CuotaEstado,
   type Frecuencia,
@@ -37,6 +38,8 @@ interface FilaCuota {
   mora_pagada: number;
   estado: string;
   fecha_pago: string | null;
+  activa?: boolean;
+  notas?: string | null;
 }
 
 interface FilaPrestamo {
@@ -389,6 +392,14 @@ export interface DatosSoloRedito {
   referencia?: string;
   notas?: string;
   usuario?: string;
+  /** Tasa a aplicar de aquí en adelante sobre el capital que queda. */
+  tasa_nueva?: number;
+  /** Rédito en pesos escrito a mano; manda por encima de la tasa. */
+  interes_nuevo?: number;
+  /** Guardar la tasa nueva en el préstamo para los próximos períodos. */
+  guardar_tasa?: boolean;
+  /** Fecha en que vence el próximo rédito. */
+  fecha_proximo_vencimiento?: string;
 }
 
 export async function registrarSoloRedito(d: DatosSoloRedito) {
@@ -451,10 +462,19 @@ export async function registrarSoloRedito(d: DatosSoloRedito) {
     frecuencia: p.frecuencia,
     diasPeriodo: Number(p.dias_periodo),
     prorrateo,
+    tasaNueva: d.tasa_nueva,
+    interesManual: d.interes_nuevo,
+    fechaProximoVencimiento: d.fecha_proximo_vencimiento,
   });
 
   if (nueva && cubrioTodoElInteres) {
     // 1) Nace la cuota diferida: capital pendiente + rédito del próximo período
+    const tasaAplicada = d.tasa_nueva ?? Number(p.tasa_interes);
+    const notaRedito =
+      d.interes_nuevo !== undefined && d.interes_nuevo !== null
+        ? `Rédito puesto a mano: ${nueva.interes} sobre un capital de ${nueva.capital}.`
+        : `Rédito al ${tasaAplicada}% sobre un capital de ${nueva.capital}.`;
+
     await sb.from("pr_cuotas").insert({
       prestamo_id: p.id,
       ciclo: p.ciclo,
@@ -465,7 +485,7 @@ export async function registrarSoloRedito(d: DatosSoloRedito) {
       total: nueva.total,
       saldo_despues: 0,
       origen: "solo_interes",
-      notas: `Generada por el pago de solo rédito de la cuota #${cuota.numero}.`,
+      notas: `Generada por el pago de solo rédito de la cuota #${cuota.numero}. ${notaRedito}`,
     });
 
     // 2) La cuota original queda saldada: su capital se trasladó
@@ -483,16 +503,18 @@ export async function registrarSoloRedito(d: DatosSoloRedito) {
       })
       .eq("id", cuota.id);
 
-    // 3) El préstamo se alarga un período
-    await sb
-      .from("pr_prestamos")
-      .update({
-        fecha_fin_estimada: nueva.fecha_vencimiento,
-        num_cuotas: Number(p.num_cuotas) + 1,
-        interes_programado: r2(Number(p.interes_programado) + nueva.interes),
-        total_programado: r2(Number(p.total_programado) + nueva.interes),
-      })
-      .eq("id", p.id);
+    // 3) El préstamo se alarga un período. Si se pidió, la tasa nueva queda
+    //    guardada para que los próximos réditos salgan con ella.
+    const cambios: Record<string, unknown> = {
+      fecha_fin_estimada: nueva.fecha_vencimiento,
+      num_cuotas: Number(p.num_cuotas) + 1,
+      interes_programado: r2(Number(p.interes_programado) + nueva.interes),
+      total_programado: r2(Number(p.total_programado) + nueva.interes),
+    };
+    if (d.guardar_tasa && d.tasa_nueva !== undefined && d.tasa_nueva !== null) {
+      cambios.tasa_interes = Number(d.tasa_nueva);
+    }
+    await sb.from("pr_prestamos").update(cambios).eq("id", p.id);
   } else {
     const capOk = Number(cuota.capital_pagado) >= Number(cuota.capital) - 0.01;
     await sb
@@ -510,6 +532,136 @@ export async function registrarSoloRedito(d: DatosSoloRedito) {
   await sincronizarEstado(p.id);
 
   return { pago, nuevaCuota: nueva && cubrioTodoElInteres ? nueva : null };
+}
+
+// ─── AJUSTAR EL RÉDITO DE UNA CUOTA ──────────────────────────────────────────
+export interface DatosAjusteRedito {
+  cuota_id: string;
+  /** Rédito en pesos que se le va a cobrar. Manda por encima de la tasa. */
+  interes_nuevo?: number;
+  /** O la tasa a aplicar sobre el capital pendiente de esa cuota. */
+  tasa_nueva?: number;
+  /** Guardar esa tasa en el préstamo para los próximos períodos. */
+  guardar_tasa?: boolean;
+  /** Correr también la fecha de vencimiento de la cuota. */
+  fecha_vencimiento?: string;
+  motivo?: string;
+  usuario?: string;
+}
+
+/**
+ * Cambia el rédito de una cuota que todavía no está saldada, sin tocar el
+ * capital ni cancelar el préstamo.
+ *
+ * Para el caso típico: el cliente debía 7,700 y solo entrega el rédito, así
+ * que quedan 5,000 de capital y de ahora en adelante se le cobra un 20 % —
+ * o sea 1,000 de rédito. Con esto se le pone ese 1,000 directamente.
+ */
+export async function ajustarRedito(d: DatosAjusteRedito) {
+  const sb = createAdminClient();
+  const prorrateo = await prorrateoConfigurado();
+
+  const { data: cuotaRaw, error: ec } = await sb
+    .from("pr_cuotas").select("*").eq("id", d.cuota_id).single();
+  if (ec || !cuotaRaw) throw new Error("Cuota no encontrada");
+  const c = cuotaRaw as FilaCuota;
+
+  if (c.activa === false) throw new Error("Esa cuota ya no está activa: la reemplazó un reenganche.");
+  if (["pagada", "condonada", "reemplazada"].includes(c.estado)) {
+    throw new Error(`No se puede cambiar el rédito de una cuota ${c.estado}.`);
+  }
+
+  const { data: prestamoRaw, error: ep } = await sb
+    .from("pr_prestamos").select("*").eq("id", c.prestamo_id).single();
+  if (ep || !prestamoRaw) throw new Error("Préstamo no encontrado");
+  const p = prestamoRaw as FilaPrestamo;
+  if (p.estado === "cancelado") throw new Error("El préstamo está cancelado.");
+
+  const capitalPendiente = Math.max(0, r2(Number(c.capital) - Number(c.capital_pagado)));
+
+  // Qué rédito queda: el escrito a mano, o el que sale de la tasa nueva.
+  let interesNuevo: number;
+  if (d.interes_nuevo !== undefined && d.interes_nuevo !== null) {
+    interesNuevo = Math.max(0, r2(Number(d.interes_nuevo)));
+  } else if (d.tasa_nueva !== undefined && d.tasa_nueva !== null) {
+    interesNuevo = reditoSugerido({
+      capitalPendiente,
+      tasaInteres: Number(d.tasa_nueva),
+      frecuencia: p.frecuencia,
+      diasPeriodo: Number(p.dias_periodo),
+      prorrateo,
+    });
+  } else {
+    throw new Error("Indica el rédito en pesos o la tasa que se va a aplicar.");
+  }
+
+  // No se puede dejar el rédito por debajo de lo que el cliente ya pagó.
+  const yaPagado = r2(Number(c.interes_pagado));
+  if (interesNuevo < yaPagado - 0.01) {
+    throw new Error(
+      `El cliente ya pagó ${yaPagado} de rédito en esta cuota, ` +
+      `así que el nuevo rédito no puede ser menor que eso.`
+    );
+  }
+
+  const interesAnterior = r2(Number(c.interes));
+  const diferencia = r2(interesNuevo - interesAnterior);
+  const totalNuevo = r2(Number(c.capital) + interesNuevo);
+
+  const capOk = Number(c.capital_pagado) >= Number(c.capital) - 0.01;
+  const intOk = yaPagado >= interesNuevo - 0.01;
+
+  const nota = [
+    c.notas,
+    `Rédito ajustado de ${interesAnterior} a ${interesNuevo}` +
+      (d.tasa_nueva !== undefined && d.tasa_nueva !== null ? ` (${d.tasa_nueva}%)` : "") +
+      (d.motivo ? ` — ${d.motivo}` : "."),
+  ].filter(Boolean).join(" ");
+
+  const cambiosCuota: Record<string, unknown> = {
+    interes: interesNuevo,
+    total: totalNuevo,
+    estado: capOk && intOk ? "pagada" : (Number(c.capital_pagado) + yaPagado > 0 ? "parcial" : "pendiente"),
+    notas: nota,
+  };
+  if (d.fecha_vencimiento) cambiosCuota.fecha_vencimiento = d.fecha_vencimiento;
+  if (capOk && intOk && !c.fecha_pago) cambiosCuota.fecha_pago = new Date().toISOString().slice(0, 10);
+
+  const { error: eu } = await sb.from("pr_cuotas").update(cambiosCuota).eq("id", c.id);
+  if (eu) throw eu;
+
+  // El préstamo cambia en la misma diferencia: ni un peso más ni menos.
+  const cambiosPrestamo: Record<string, unknown> = {
+    interes_programado: r2(Number(p.interes_programado) + diferencia),
+    total_programado: r2(Number(p.total_programado) + diferencia),
+  };
+  if (d.guardar_tasa && d.tasa_nueva !== undefined && d.tasa_nueva !== null) {
+    cambiosPrestamo.tasa_interes = Number(d.tasa_nueva);
+  }
+  if (d.fecha_vencimiento) {
+    const { data: ultima } = await sb
+      .from("pr_cuotas")
+      .select("fecha_vencimiento")
+      .eq("prestamo_id", p.id)
+      .eq("activa", true)
+      .order("fecha_vencimiento", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (ultima?.fecha_vencimiento) cambiosPrestamo.fecha_fin_estimada = ultima.fecha_vencimiento;
+  }
+  await sb.from("pr_prestamos").update(cambiosPrestamo).eq("id", p.id);
+
+  await sincronizarEstado(p.id);
+
+  const { data: cuotaFinal } = await sb.from("pr_cuotas").select("*").eq("id", c.id).single();
+  return {
+    cuota: cuotaFinal,
+    interes_anterior: interesAnterior,
+    interes_nuevo: interesNuevo,
+    diferencia,
+    capital_pendiente: capitalPendiente,
+    tasa_guardada: !!cambiosPrestamo.tasa_interes,
+  };
 }
 
 // ─── REENGANCHE ──────────────────────────────────────────────────────────────

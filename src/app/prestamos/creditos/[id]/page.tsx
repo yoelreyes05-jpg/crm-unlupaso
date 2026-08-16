@@ -33,6 +33,7 @@ export default function DetallePrestamo() {
 
   const [modalPago, setModalPago] = useState<PrCuotaVista | null>(null);
   const [modalRedito, setModalRedito] = useState<PrCuotaVista | null>(null);
+  const [modalAjuste, setModalAjuste] = useState<PrCuotaVista | null>(null);
   const [modalReenganche, setModalReenganche] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -104,6 +105,7 @@ export default function DetallePrestamo() {
             {p.estado === "activo" && proxima && (
               <>
                 <Btn tono="neutro" onClick={() => setModalRedito(proxima)}>Pagar solo rédito</Btn>
+                <Btn tono="neutro" onClick={() => setModalAjuste(proxima)}>Cambiar rédito</Btn>
                 <Btn tono="neutro" onClick={() => setModalReenganche(true)}>Reenganche</Btn>
                 <Btn tono="ok" onClick={() => setModalPago(proxima)}>Registrar pago</Btn>
               </>
@@ -199,6 +201,10 @@ export default function DetallePrestamo() {
                 <button onClick={() => setModalRedito(f as unknown as PrCuotaVista)}
                         style={{ background: "transparent", border: "none", color: T.acento, cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>
                   Rédito
+                </button>
+                <button onClick={() => setModalAjuste(f as unknown as PrCuotaVista)}
+                        style={{ background: "transparent", border: "none", color: T.suave, cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>
+                  Cambiar rédito
                 </button>
               </div>
             ) : null
@@ -361,6 +367,31 @@ export default function DetallePrestamo() {
         />
       )}
 
+      {modalAjuste && (
+        <ModalAjustarRedito
+          cuota={modalAjuste} prestamo={p} simbolo={s} config={cfg} procesando={procesando}
+          onCerrar={() => setModalAjuste(null)}
+          onGuardar={async (body) => {
+            setProcesando(true); setError("");
+            try {
+              const r = await api<{ data: {
+                interes_anterior: number; interes_nuevo: number; tasa_guardada: boolean;
+              } }>("/ajustar-redito", { metodo: "POST", body });
+              const a = r.data;
+              setOk(
+                `Rédito de la cuota #${modalAjuste.numero} cambiado de ` +
+                `${RD(a.interes_anterior, s)} a ${RD(a.interes_nuevo, s)}.` +
+                (a.tasa_guardada ? " La tasa nueva quedó guardada en el préstamo." : "")
+              );
+              setModalAjuste(null);
+              await cargar();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Error");
+            } finally { setProcesando(false); }
+          }}
+        />
+      )}
+
       {modalReenganche && (
         <ModalReenganche
           prestamo={p} cuotas={activas} simbolo={s} procesando={procesando}
@@ -499,17 +530,35 @@ function ModalRedito({
   const [f, setF] = useState({ fecha: hoyISO(), metodo_pago: "efectivo", referencia: "" });
 
   const capitalDiferido = r2(Number(cuota.capital) - Number(cuota.capital_pagado));
+
+  // Rédito que saldría con la tasa que tiene hoy el préstamo
+  const tasaActual = Number(prestamo.tasa_interes);
+  const [tasa, setTasa] = useState(String(tasaActual));
   const iPer = tasaPeriodo(
-    Number(prestamo.tasa_interes),
+    Number(tasa) || 0,
     prestamo.frecuencia,
     Number(prestamo.dias_periodo),
     config?.metodo_prorrateo
   );
-  const nuevoInteres = r2(capitalDiferido * iPer);
+  const calculado = r2(capitalDiferido * iPer);
+
+  // El prestamista puede escribir el rédito a mano
+  const [manual, setManual] = useState(false);
+  const [reditoManual, setReditoManual] = useState(String(calculado));
+  const [guardarTasa, setGuardarTasa] = useState(true);
+  const [vence, setVence] = useState("");
+
+  // Mientras no lo esté escribiendo a mano, el campo sigue a la tasa
+  useEffect(() => {
+    if (!manual) setReditoManual(String(calculado));
+  }, [calculado, manual]);
+
+  const reditoFinal = manual ? r2(Number(reditoManual) || 0) : calculado;
+  const cambioTasa = Number(tasa) !== tasaActual;
 
   return (
     <Modal
-      abierto titulo={`Pago de solo rédito · cuota #${cuota.numero}`} onCerrar={onCerrar} ancho={540}
+      abierto titulo={`Pago de solo rédito · cuota #${cuota.numero}`} onCerrar={onCerrar} ancho={580}
       pie={
         <>
           <Btn tono="neutro" onClick={onCerrar}>Cancelar</Btn>
@@ -518,6 +567,10 @@ function ModalRedito({
                  prestamo_id: prestamo.id, cuota_id: cuota.id,
                  fecha: f.fecha, monto: Number(monto),
                  metodo_pago: f.metodo_pago, referencia: f.referencia,
+                 tasa_nueva: cambioTasa ? Number(tasa) : undefined,
+                 interes_nuevo: manual ? reditoFinal : undefined,
+                 guardar_tasa: cambioTasa && guardarTasa,
+                 fecha_proximo_vencimiento: vence || undefined,
                })}>
             {procesando ? "Guardando…" : "Registrar rédito"}
           </Btn>
@@ -533,10 +586,67 @@ function ModalRedito({
         )}
         <div style={{ borderTop: `1px dashed ${T.borde}`, margin: "10px 0 8px" }} />
         <Etiqueta>Lo que quedará para el próximo período</Etiqueta>
-        <Fila t="Capital diferido" v={RD(capitalDiferido, simbolo)} />
-        <Fila t={`+ Rédito (${PCT(iPer * 100, 2)})`} v={RD(nuevoInteres, simbolo)} />
+        <Fila t="Capital que se queda debiendo" v={RD(capitalDiferido, simbolo)} fuerte />
+        <Fila t={manual ? "+ Rédito puesto a mano" : `+ Rédito al ${tasa}% (${PCT(iPer * 100, 2)} del período)`}
+              v={RD(reditoFinal, simbolo)} />
         <div style={{ borderTop: `1px solid ${T.borde}`, marginTop: 8, paddingTop: 8 }}>
-          <Fila t="Nueva cuota" v={RD(capitalDiferido + nuevoInteres, simbolo)} fuerte color={T.acento} />
+          <Fila t="Nueva cuota" v={RD(capitalDiferido + reditoFinal, simbolo)} fuerte color={T.acento} />
+        </div>
+      </div>
+
+      {/* ── Rédito del próximo período ── */}
+      <div style={{ border: `1px solid ${T.borde}`, borderRadius: 10, padding: 13, marginBottom: 15 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 4 }}>
+          Rédito del próximo período
+        </div>
+        <div style={{ fontSize: 11.5, color: T.suave, marginBottom: 11, lineHeight: 1.5 }}>
+          Sobre el capital que se queda debiendo. Puedes cambiar la tasa o escribir
+          el monto directo, sin cancelar el préstamo.
+        </div>
+
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+          <div>
+            <Etiqueta>Tasa a aplicar</Etiqueta>
+            <select style={inputBase} value={tasa} onChange={(e) => setTasa(e.target.value)}>
+              {[...new Set([...TASAS_DISPONIBLES.map(String), String(tasaActual)])]
+                .sort((a, b) => Number(a) - Number(b))
+                .map((t) => (
+                  <option key={t} value={t}>
+                    {t}%{Number(t) === tasaActual ? " · la de ahora" : ""}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div>
+            <Etiqueta>Rédito en {simbolo}</Etiqueta>
+            <input
+              type="number" step="0.01"
+              style={{ ...inputBase, fontWeight: 700, background: manual ? "#fff" : T.panel2 }}
+              value={reditoManual}
+              onChange={(e) => { setManual(true); setReditoManual(e.target.value); }}
+            />
+            {manual && (
+              <button type="button" onClick={() => { setManual(false); setReditoManual(String(calculado)); }}
+                      style={{ background: "none", border: "none", color: T.acento, cursor: "pointer",
+                               fontSize: 11.5, fontWeight: 700, padding: "5px 0 0" }}>
+                Volver al cálculo automático
+              </button>
+            )}
+          </div>
+          <div>
+            <Etiqueta>Vence el (opcional)</Etiqueta>
+            <input type="date" style={inputBase} value={vence}
+                   onChange={(e) => setVence(e.target.value)} />
+          </div>
+          {cambioTasa && (
+            <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: 8 }}>
+              <label style={{ display: "flex", gap: 7, alignItems: "center", fontSize: 12.5, cursor: "pointer" }}>
+                <input type="checkbox" checked={guardarTasa}
+                       onChange={(e) => setGuardarTasa(e.target.checked)} />
+                Dejar el {tasa}% fijo en el préstamo
+              </label>
+            </div>
+          )}
         </div>
       </div>
 
@@ -563,6 +673,149 @@ function ModalRedito({
         <div>
           <Etiqueta>Referencia</Etiqueta>
           <input style={inputBase} value={f.referencia} onChange={(e) => setF({ ...f, referencia: e.target.value })} />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ═══════════════════ MODAL: ajustar el rédito de una cuota ═══════════════════ */
+function ModalAjustarRedito({
+  cuota, prestamo, simbolo, config, procesando, onCerrar, onGuardar,
+}: {
+  cuota: PrCuotaVista;
+  prestamo: PrPrestamoVista;
+  simbolo: string;
+  config: PrConfig | null;
+  procesando: boolean;
+  onCerrar: () => void;
+  onGuardar: (body: Record<string, unknown>) => void;
+}) {
+  const capitalPendiente = r2(Number(cuota.capital) - Number(cuota.capital_pagado));
+  const tasaActual = Number(prestamo.tasa_interes);
+  const [tasa, setTasa] = useState(String(tasaActual));
+
+  const iPer = tasaPeriodo(
+    Number(tasa) || 0,
+    prestamo.frecuencia,
+    Number(prestamo.dias_periodo),
+    config?.metodo_prorrateo
+  );
+  const calculado = r2(capitalPendiente * iPer);
+
+  const [manual, setManual] = useState(false);
+  const [redito, setRedito] = useState(String(calculado));
+  const [guardarTasa, setGuardarTasa] = useState(true);
+  const [vence, setVence] = useState(String(cuota.fecha_vencimiento ?? "").slice(0, 10));
+  const [motivo, setMotivo] = useState("");
+
+  useEffect(() => {
+    if (!manual) setRedito(String(calculado));
+  }, [calculado, manual]);
+
+  const reditoFinal = r2(Number(redito) || 0);
+  const anterior = r2(Number(cuota.interes));
+  const diferencia = r2(reditoFinal - anterior);
+  const yaPagado = r2(Number(cuota.interes_pagado));
+  const menorQuePagado = reditoFinal < yaPagado - 0.01;
+  const cambioTasa = Number(tasa) !== tasaActual;
+
+  return (
+    <Modal
+      abierto titulo={`Cambiar el rédito · cuota #${cuota.numero}`} onCerrar={onCerrar} ancho={560}
+      pie={
+        <>
+          <Btn tono="neutro" onClick={onCerrar}>Cancelar</Btn>
+          <Btn disabled={procesando || menorQuePagado}
+               onClick={() => onGuardar({
+                 cuota_id: cuota.id,
+                 interes_nuevo: reditoFinal,
+                 tasa_nueva: cambioTasa ? Number(tasa) : undefined,
+                 guardar_tasa: cambioTasa && guardarTasa,
+                 fecha_vencimiento: vence || undefined,
+                 motivo: motivo || undefined,
+               })}>
+            {procesando ? "Guardando…" : "Guardar rédito"}
+          </Btn>
+        </>
+      }
+    >
+      <Aviso tono="info" texto={
+        "Cambia lo que se le cobra de rédito en esta cuota, sin tocar el capital " +
+        "ni cancelar el préstamo. El total del préstamo se ajusta solo por la diferencia."
+      } />
+
+      <div style={{ background: T.panel2, border: `1px solid ${T.borde}`, borderRadius: 10, padding: 13, marginBottom: 15, fontSize: 13.5 }}>
+        <Fila t="Capital de esta cuota" v={RD(capitalPendiente, simbolo)} />
+        <Fila t="Rédito que tiene hoy" v={RD(anterior, simbolo)} />
+        {yaPagado > 0 && <Fila t="Rédito ya cobrado" v={RD(yaPagado, simbolo)} color={T.ok} />}
+        <div style={{ borderTop: `1px solid ${T.borde}`, marginTop: 8, paddingTop: 8 }}>
+          <Fila t="Rédito nuevo" v={RD(reditoFinal, simbolo)} fuerte color={T.acento} />
+          <Fila t="Nuevo total de la cuota" v={RD(Number(cuota.capital) + reditoFinal, simbolo)} fuerte />
+          {Math.abs(diferencia) > 0.009 && (
+            <Fila t={diferencia > 0 ? "Se le cobra de más" : "Se le rebaja"}
+                  v={RD(Math.abs(diferencia), simbolo)}
+                  color={diferencia > 0 ? T.err : T.ok} />
+          )}
+        </div>
+      </div>
+
+      {menorQuePagado && (
+        <Aviso texto={
+          `El cliente ya pagó ${RD(yaPagado, simbolo)} de rédito en esta cuota: ` +
+          "el nuevo no puede ser menor que eso."
+        } />
+      )}
+
+      <div style={{ display: "grid", gap: 13, gridTemplateColumns: "1fr 1fr" }}>
+        <div>
+          <Etiqueta>Tasa a aplicar</Etiqueta>
+          <select style={inputBase} value={tasa} onChange={(e) => setTasa(e.target.value)}>
+            {[...new Set([...TASAS_DISPONIBLES.map(String), String(tasaActual)])]
+              .sort((a, b) => Number(a) - Number(b))
+              .map((t) => (
+                <option key={t} value={t}>
+                  {t}%{Number(t) === tasaActual ? " · la de ahora" : ""}
+                </option>
+              ))}
+          </select>
+          <div style={{ fontSize: 11, color: T.suave, marginTop: 4 }}>
+            {RD(capitalPendiente, simbolo)} × {PCT(iPer * 100, 2)} = {RD(calculado, simbolo)}
+          </div>
+        </div>
+        <div>
+          <Etiqueta>Rédito en {simbolo}</Etiqueta>
+          <input type="number" step="0.01"
+                 style={{ ...inputBase, fontSize: 16, fontWeight: 700 }}
+                 value={redito}
+                 onChange={(e) => { setManual(true); setRedito(e.target.value); }} />
+          {manual && (
+            <button type="button" onClick={() => { setManual(false); setRedito(String(calculado)); }}
+                    style={{ background: "none", border: "none", color: T.acento, cursor: "pointer",
+                             fontSize: 11.5, fontWeight: 700, padding: "5px 0 0" }}>
+              Volver al cálculo automático
+            </button>
+          )}
+        </div>
+        <div>
+          <Etiqueta>Vence el</Etiqueta>
+          <input type="date" style={inputBase} value={vence}
+                 onChange={(e) => setVence(e.target.value)} />
+        </div>
+        {cambioTasa && (
+          <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: 8 }}>
+            <label style={{ display: "flex", gap: 7, alignItems: "center", fontSize: 12.5, cursor: "pointer" }}>
+              <input type="checkbox" checked={guardarTasa}
+                     onChange={(e) => setGuardarTasa(e.target.checked)} />
+              Dejar el {tasa}% fijo en el préstamo
+            </label>
+          </div>
+        )}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <Etiqueta>Motivo (queda anotado en la cuota)</Etiqueta>
+          <input style={inputBase} value={motivo}
+                 onChange={(e) => setMotivo(e.target.value)}
+                 placeholder="Ej.: se le bajó la tasa al 20%" />
         </div>
       </div>
     </Modal>
