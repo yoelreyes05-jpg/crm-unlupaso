@@ -88,6 +88,20 @@ export default function InversionistasPage() {
         filtros={[
           { name: "activo", label: "Estado", opciones: [{ value: "true", label: "Activos" }, { value: "false", label: "Inactivos" }] },
         ]}
+        borrar={{
+          query: "definitivo=1",
+          confirmar: (f) =>
+            `¿Eliminar al inversionista ${f.nombre}?\n\n` +
+            "Se borra su ficha y toda su caja de movimientos (aportes, retiros y ajustes).\n" +
+            "No se puede recuperar.\n\n" +
+            "Si todavía tiene capital en la calle el sistema no lo dejará: primero " +
+            "hay que terminar de cobrar esos préstamos.",
+          reintentar: {
+            query: "forzar=1",
+            confirmar: (mensaje) =>
+              `${mensaje}\n\n¿Continuar y borrarlo de todos modos?`,
+          },
+        }}
         encabezadoFormulario={(llenar) => (
           <BarraContactos
             botones={[

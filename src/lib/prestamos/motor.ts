@@ -534,6 +534,86 @@ export async function registrarSoloRedito(d: DatosSoloRedito) {
   return { pago, nuevaCuota: nueva && cubrioTodoElInteres ? nueva : null };
 }
 
+// ─── ELIMINAR UN INVERSIONISTA ───────────────────────────────────────────────
+export interface DatosEliminarInversionista {
+  id: string;
+  /** Borrar aunque tenga préstamos ya terminados en el historial. */
+  forzar?: boolean;
+  usuario?: string;
+}
+
+/**
+ * Saca un inversionista del sistema.
+ *
+ * La regla es simple y protege el dinero:
+ *  · Sin préstamos            → se borra, junto con su caja de movimientos.
+ *  · Solo préstamos terminados → se borra si se confirma. Los préstamos viejos
+ *    conservan el nombre y el reparto de ganancias, solo pierden el enlace.
+ *  · Con préstamos ACTIVOS     → no se borra. Ese capital todavía está en la
+ *    calle y borrarlo dejaría sin dueño un dinero que se sigue cobrando.
+ */
+export async function eliminarInversionista(d: DatosEliminarInversionista) {
+  const sb = createAdminClient();
+
+  const { data: inv } = await sb
+    .from("pr_inversionistas").select("id,nombre,codigo").eq("id", d.id).single();
+  if (!inv) throw new Error("Ese inversionista ya no existe.");
+
+  // ¿Qué préstamos financió y en qué estado están?
+  const { data: prestamos } = await sb
+    .from("pr_v_prestamos")
+    .select("id,codigo,estado,saldo_capital,saldo_total,cliente_nombre")
+    .eq("inversionista_id", d.id);
+
+  const lista = (prestamos ?? []) as {
+    id: string; codigo: string; estado: string;
+    saldo_capital: number; saldo_total: number; cliente_nombre: string;
+  }[];
+
+  const activos = lista.filter((p) => p.estado === "activo");
+  const enCalle = r2(activos.reduce((a, p) => a + Number(p.saldo_capital ?? 0), 0));
+
+  if (activos.length > 0) {
+    const cuales = activos
+      .slice(0, 4)
+      .map((p) => `${p.codigo} (${p.cliente_nombre})`)
+      .join(", ");
+    throw new Error(
+      `${inv.nombre} tiene ${activos.length} préstamo(s) activo(s) con ` +
+      `${enCalle.toLocaleString("es-DO", { minimumFractionDigits: 2 })} de capital en la calle: ` +
+      `${cuales}${activos.length > 4 ? "…" : ""}. ` +
+      "No se puede borrar mientras ese dinero se siga cobrando, porque quedaría sin dueño. " +
+      "Cuando esos préstamos terminen, o si se los pasas a otro inversionista, ya se podrá."
+    );
+  }
+
+  if (lista.length > 0 && !d.forzar) {
+    throw new Error(
+      `${inv.nombre} tiene ${lista.length} préstamo(s) terminados en el historial. ` +
+      "Se puede borrar: esos préstamos conservan su nombre y el reparto de ganancias, " +
+      "solo pierden el enlace a su ficha. Confirma para continuar."
+    );
+  }
+
+  // Cuánto había en su caja, para poder decírselo después
+  const { data: movs } = await sb
+    .from("pr_movimientos_inversionista").select("id").eq("inversionista_id", d.id);
+  const movimientos = (movs ?? []).length;
+
+  // Los préstamos y las distribuciones se quedan con el nombre escrito
+  // (lo puso el trigger); la llave se vuelve null sola al borrar.
+  const { error } = await sb.from("pr_inversionistas").delete().eq("id", d.id);
+  if (error) throw error;
+
+  return {
+    ok: true,
+    nombre: inv.nombre,
+    codigo: inv.codigo,
+    prestamos_historicos: lista.length,
+    movimientos_borrados: movimientos,
+  };
+}
+
 // ─── AJUSTAR EL RÉDITO DE UNA CUOTA ──────────────────────────────────────────
 export interface DatosAjusteRedito {
   cuota_id: string;

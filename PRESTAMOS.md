@@ -161,6 +161,22 @@ En el botón **Cambiar rédito** (o en la fila de cada cuota) se le puede poner 
 - Queda anotado en la cuota de cuánto a cuánto se cambió y el motivo.
 - No se permite dejar el rédito por debajo de lo que el cliente ya pagó en esa cuota, ni tocar cuotas pagadas, condonadas o reemplazadas por un reenganche.
 
+### Eliminar un inversionista
+
+En la lista de inversionistas cada fila tiene **Eliminar**. La regla protege el dinero que está en la calle:
+
+| Situación | Qué pasa |
+|---|---|
+| No ha financiado ningún préstamo | Se borra completo, junto con su caja de movimientos |
+| Solo tiene préstamos **terminados** | Se borra, pidiendo una segunda confirmación |
+| Tiene préstamos **activos** | **No se borra.** El sistema dice cuántos son, cuánto capital tiene en la calle y de qué clientes |
+
+Cuando se borra a alguien con historial, los préstamos viejos y el reparto de ganancias **conservan su nombre y todos sus montos** — solo pierden el enlace a la ficha. El estado de cuenta, la contabilidad y los totales del mes no cambian.
+
+Si lo que se quiere es que deje de aparecer al crear préstamos nuevos pero sin perder nada, no hace falta borrarlo: basta con quitarle la marca de **Activo** desde *Editar*.
+
+> Requiere ejecutar `supabase/prestamos_borrar_inversionista.sql`.
+
 ### Reenganche
 
 El cliente todavía debe y necesita más dinero:
@@ -222,6 +238,7 @@ GET             /api/prestamos/cuotas              · /cuotas/[id]
 GET/POST        /api/prestamos/pagos               · /pagos/[id]      (POST imputa mora → interés → capital)
 POST            /api/prestamos/solo-redito
 POST            /api/prestamos/ajustar-redito     · cambia el rédito de una cuota sin pago
+DELETE          /api/prestamos/inversionistas/[id]?definitivo=1[&forzar=1]
 POST            /api/prestamos/reenganche
 POST            /api/prestamos/anular-pago
 GET             /api/prestamos/dashboard
