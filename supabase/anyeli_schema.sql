@@ -82,10 +82,19 @@ alter table if exists ia_prestamos drop column if exists prestamo_origen_id;
 -- El trigger de la versión anterior escribía en 'actualizado_en'.
 -- Se apaga aquí para que no estorbe durante la migración; al final se
 -- vuelve a crear apuntando a 'updated_at'.
-drop trigger if exists ia_tg_touch_clientes  on ia_clientes;
-drop trigger if exists ia_tg_touch_inv       on ia_inversionistas;
-drop trigger if exists ia_tg_touch_prestamos on ia_prestamos;
-drop trigger if exists ia_tg_touch_config    on ia_config;
+-- (En una instalación nueva las tablas todavía no existen: por eso el
+--  guardia. `drop trigger if exists` igual falla si la tabla no está.)
+do $$
+declare t text;
+begin
+  foreach t in array array['ia_clientes','ia_inversionistas','ia_prestamos','ia_config'] loop
+    if to_regclass('public.' || t) is not null then
+      execute format('drop trigger if exists ia_tg_touch_%s on public.%I',
+                     case t when 'ia_inversionistas' then 'inv'
+                            else replace(t, 'ia_', '') end, t);
+    end if;
+  end loop;
+end $$;
 
 -- =====================================================================
 -- PASO 3 · Renombrar las columnas de la versión anterior
