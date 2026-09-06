@@ -1,0 +1,243 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/server";
+
+/**
+ * Helper CRUD para las tablas ia_* del módulo de Préstamos.
+ * Mismo patrón que el ERP de repostería: las rutas usan la service role key,
+ * así que RLS no aplica y ningún módulo puede tocar las tablas del otro.
+ */
+
+export interface CrudOptions {
+  /** Nombre exacto de la tabla, siempre con prefijo ia_ */
+  table: string;
+  /** Campos aceptados en POST/PATCH (whitelist) */
+  fields: string[];
+  /** Campos obligatorios al crear */
+  required?: string[];
+  /** Columnas donde se busca con ?search= */
+  searchFields?: string[];
+  /** Columnas filtrables por igualdad con query params */
+  filters?: string[];
+  /** Ordenamiento por defecto */
+  orderBy?: string;
+  ascending?: boolean;
+  /** select() personalizado */
+  select?: string;
+  /** Campos que, si llegan vacíos, se omiten para que la base use su valor
+   *  por defecto (ej. `codigo`, que se autogenera). */
+  conDefecto?: string[];
+}
+
+const PREFIJO = "ia_";
+
+function assertTabla(table: string) {
+  if (!table.startsWith(PREFIJO)) {
+    throw new Error(`Tabla no permitida: ${table}. El módulo de préstamos solo usa tablas ${PREFIJO}*`);
+  }
+}
+
+export function pick(
+  body: Record<string, unknown>,
+  fields: string[],
+  /** Campos que si llegan vacíos se omiten, para que la base ponga su valor
+   *  por defecto en vez de guardar null (ej. el código autogenerado). */
+  conDefecto: string[] = []
+) {
+  const out: Record<string, unknown> = {};
+  for (const f of fields) {
+    if (body[f] === undefined) continue;
+    const vacio = body[f] === "" || body[f] === null;
+    if (vacio && conDefecto.includes(f)) continue;
+    out[f] = body[f] === "" ? null : body[f];
+  }
+  return out;
+}
+
+export function fail(err: unknown, fallback: string, status = 500) {
+  // Los errores de Supabase llegan como objetos planos, no como instancias de
+  // Error: sin esto se perdía el mensaje real y solo se veía el texto genérico.
+  const e = err as { message?: string; details?: string; hint?: string; code?: string } | null;
+  const msg = err instanceof Error ? err.message : e?.message || fallback;
+  const extra = e?.details || e?.hint;
+
+  // Errores de base de datos traducidos: el usuario no tiene por qué leer
+  // "duplicate key value violates unique constraint".
+  if (e?.code === "23505") {
+    const campo = /\((\w+)\)/.exec(e?.details ?? "")?.[1];
+    return NextResponse.json(
+      {
+        error: campo
+          ? `Ya existe otro registro con ese ${campo === "codigo" ? "código" : campo}. Ponle uno distinto.`
+          : "Ya existe otro registro con ese dato. Tiene que ser único.",
+        code: e.code,
+      },
+      { status: 409 }
+    );
+  }
+  if (e?.code === "23503") {
+    return NextResponse.json(
+      { error: "No se puede porque hay otros registros que dependen de este.", code: e.code },
+      { status: 409 }
+    );
+  }
+
+  return NextResponse.json(
+    { error: extra ? `${msg} — ${extra}` : msg, code: e?.code },
+    { status }
+  );
+}
+
+// ─── LISTAR ───────────────────────────────────────────────────────────────────
+export async function listar(req: NextRequest, o: CrudOptions) {
+  try {
+    assertTabla(o.table);
+    const supabase = createAdminClient();
+    const sp = req.nextUrl.searchParams;
+
+    const page   = Math.max(parseInt(sp.get("page")  ?? "1"), 1);
+    const limit  = Math.min(parseInt(sp.get("limit") ?? "300"), 2000);
+    const offset = (page - 1) * limit;
+
+    let q = supabase
+      .from(o.table)
+      .select(o.select ?? "*", { count: "exact" })
+      .order(o.orderBy ?? "created_at", { ascending: o.ascending ?? false })
+      .range(offset, offset + limit - 1);
+
+    for (const f of o.filters ?? []) {
+      const v = sp.get(f);
+      if (v !== null && v !== "") {
+        if (v === "true" || v === "false") q = q.eq(f, v === "true");
+        else if (v === "null") q = q.is(f, null);
+        else q = q.eq(f, v);
+      }
+    }
+
+    const desde = sp.get("desde");
+    const hasta = sp.get("hasta");
+    const campoFecha = sp.get("campo_fecha") ?? "created_at";
+    if (desde) q = q.gte(campoFecha, desde);
+    if (hasta) q = q.lte(campoFecha, hasta);
+
+    const search = sp.get("search");
+    if (search && (o.searchFields ?? []).length > 0) {
+      q = q.or((o.searchFields ?? []).map((f) => `${f}.ilike.%${search}%`).join(","));
+    }
+
+    const { data, error, count } = await q;
+    if (error) throw error;
+
+    return NextResponse.json({ data, count, page, limit });
+  } catch (err) {
+    return fail(err, `Error al listar ${o.table}`);
+  }
+}
+
+// ─── CREAR ────────────────────────────────────────────────────────────────────
+export async function crear(req: NextRequest, o: CrudOptions) {
+  try {
+    assertTabla(o.table);
+    const supabase = createAdminClient();
+    const body = await req.json();
+
+    for (const r of o.required ?? []) {
+      if (body[r] === undefined || body[r] === null || body[r] === "") {
+        return NextResponse.json({ error: `Campo requerido: ${r}` }, { status: 400 });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from(o.table)
+      .insert(pick(body, o.fields, o.conDefecto))
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ data }, { status: 201 });
+  } catch (err) {
+    return fail(err, `Error al crear en ${o.table}`);
+  }
+}
+
+// ─── OBTENER UNO ──────────────────────────────────────────────────────────────
+export async function obtener(id: string, o: CrudOptions) {
+  try {
+    assertTabla(o.table);
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from(o.table)
+      .select(o.select ?? "*")
+      .eq("id", id)
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ data });
+  } catch (err) {
+    return fail(err, "Registro no encontrado", 404);
+  }
+}
+
+// ─── ACTUALIZAR ───────────────────────────────────────────────────────────────
+export async function actualizar(req: NextRequest, id: string, o: CrudOptions) {
+  try {
+    assertTabla(o.table);
+    const supabase = createAdminClient();
+    const body = await req.json();
+    const cambios = pick(body, o.fields, o.conDefecto);
+
+    if (Object.keys(cambios).length === 0) {
+      return NextResponse.json({ error: "No hay campos válidos para actualizar" }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from(o.table)
+      .update(cambios)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ data });
+  } catch (err) {
+    return fail(err, `Error al actualizar ${o.table}`);
+  }
+}
+
+// ─── ELIMINAR ─────────────────────────────────────────────────────────────────
+export async function eliminar(id: string, o: CrudOptions, softField?: string) {
+  try {
+    assertTabla(o.table);
+    const supabase = createAdminClient();
+
+    if (softField) {
+      const { error } = await supabase.from(o.table).update({ [softField]: false }).eq("id", id);
+      if (error) throw error;
+      return NextResponse.json({ message: "Registro desactivado" });
+    }
+
+    const { error } = await supabase.from(o.table).delete().eq("id", id);
+    if (error) throw error;
+    return NextResponse.json({ message: "Registro eliminado" });
+  } catch (err) {
+    return fail(err, `Error al eliminar en ${o.table}`);
+  }
+}
+
+/** Atajo: handlers GET/POST de una colección. */
+export function coleccion(o: CrudOptions) {
+  return {
+    GET:  (req: NextRequest) => listar(req, o),
+    POST: (req: NextRequest) => crear(req, o),
+  };
+}
+
+/** Atajo: handlers GET/PATCH/PUT/DELETE de un recurso individual. */
+export function recurso(o: CrudOptions, softField?: string) {
+  type Ctx = { params: Promise<{ id: string }> };
+  return {
+    GET:    async (_req: NextRequest, ctx: Ctx) => obtener((await ctx.params).id, o),
+    PATCH:  async (req: NextRequest, ctx: Ctx)  => actualizar(req, (await ctx.params).id, o),
+    PUT:    async (req: NextRequest, ctx: Ctx)  => actualizar(req, (await ctx.params).id, o),
+    DELETE: async (_req: NextRequest, ctx: Ctx) => eliminar((await ctx.params).id, o, softField),
+  };
+}
