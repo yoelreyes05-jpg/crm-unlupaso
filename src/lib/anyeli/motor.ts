@@ -916,3 +916,137 @@ export async function anularPago(pagoId: string) {
 
   return { ok: true };
 }
+
+// ─── ELIMINAR UN PRÉSTAMO ────────────────────────────────────────────────────
+export interface DatosEliminarPrestamo {
+  id: string;
+  /** Borrar aunque ya tenga pagos cobrados. */
+  forzar?: boolean;
+}
+
+/**
+ * Borra un préstamo con todo lo que cuelga de él.
+ *
+ * Las llaves foráneas de cuotas, pagos, distribuciones y reenganches son
+ * `on delete cascade`, así que basta con borrar la fila del préstamo: la base
+ * se lleva el resto sola, en una sola operación y sin dejar huérfanos.
+ *
+ * Si el préstamo ya tiene dinero cobrado hace falta confirmar, porque al
+ * borrarlo desaparecen también las distribuciones y la ganancia que ya se le
+ * había repartido al inversionista.
+ */
+export async function eliminarPrestamo(d: DatosEliminarPrestamo) {
+  const sb = createAdminClient();
+
+  const { data: p } = await sb
+    .from("ia_v_prestamos")
+    .select("id,codigo,cliente_nombre,inversionista_nombre,capital,total_cobrado")
+    .eq("id", d.id)
+    .single();
+  if (!p) throw new Error("Ese préstamo ya no existe.");
+
+  const [{ count: pagos }, { count: cuotas }, { count: distribuciones }] = await Promise.all([
+    sb.from("ia_pagos").select("id", { count: "exact", head: true })
+      .eq("prestamo_id", d.id).eq("anulado", false),
+    sb.from("ia_cuotas").select("id", { count: "exact", head: true }).eq("prestamo_id", d.id),
+    sb.from("ia_distribuciones").select("id", { count: "exact", head: true }).eq("prestamo_id", d.id),
+  ]);
+
+  const cobrado = r2(Number(p.total_cobrado ?? 0));
+
+  if ((pagos ?? 0) > 0 && !d.forzar) {
+    throw new Error(
+      `El préstamo ${p.codigo} de ${p.cliente_nombre} tiene ${pagos} pago(s) cobrados por ` +
+      `${cobrado.toLocaleString("es-DO", { minimumFractionDigits: 2 })}. ` +
+      "Al borrarlo se van también esos pagos y la ganancia que ya se le repartió " +
+      (p.inversionista_nombre ? `a ${p.inversionista_nombre}. ` : "al inversionista. ") +
+      "Confirma para borrarlo de todos modos."
+    );
+  }
+
+  const { error } = await sb.from("ia_prestamos").delete().eq("id", d.id);
+  if (error) throw error;
+
+  return {
+    ok: true,
+    codigo: p.codigo,
+    cliente: p.cliente_nombre,
+    cuotas_borradas: cuotas ?? 0,
+    pagos_borrados: pagos ?? 0,
+    distribuciones_borradas: distribuciones ?? 0,
+  };
+}
+
+// ─── ELIMINAR UN CLIENTE ─────────────────────────────────────────────────────
+export interface DatosEliminarCliente {
+  id: string;
+  /** Borrar aunque tenga préstamos o pagos en el historial. */
+  forzar?: boolean;
+}
+
+/**
+ * Saca un cliente del sistema con todo su historial.
+ *
+ * `ia_prestamos.cliente_id` es `on delete restrict`, así que primero se borran
+ * sus préstamos —y con ellos, en cascada, cuotas, pagos, distribuciones y
+ * reenganches— y al final la ficha del cliente.
+ *
+ * Con préstamos activos no se borra: ese dinero todavía está en la calle.
+ */
+export async function eliminarCliente(d: DatosEliminarCliente) {
+  const sb = createAdminClient();
+
+  const { data: cl } = await sb
+    .from("ia_clientes").select("id,nombre,codigo").eq("id", d.id).single();
+  if (!cl) throw new Error("Ese cliente ya no existe.");
+
+  const { data: prestamosRaw } = await sb
+    .from("ia_v_prestamos")
+    .select("id,codigo,estado,saldo_total,total_cobrado")
+    .eq("cliente_id", d.id);
+
+  const lista = (prestamosRaw ?? []) as {
+    id: string; codigo: string; estado: string;
+    saldo_total: number; total_cobrado: number;
+  }[];
+
+  const activos = lista.filter((p) => p.estado === "activo");
+  if (activos.length > 0) {
+    const debe = r2(activos.reduce((a, p) => a + Number(p.saldo_total ?? 0), 0));
+    throw new Error(
+      `${cl.nombre} tiene ${activos.length} préstamo(s) activo(s) y todavía debe ` +
+      `${debe.toLocaleString("es-DO", { minimumFractionDigits: 2 })} ` +
+      `(${activos.slice(0, 4).map((p) => p.codigo).join(", ")}${activos.length > 4 ? "…" : ""}). ` +
+      "No se puede borrar mientras ese dinero se siga cobrando. " +
+      "Cancela o termina de cobrar esos préstamos y vuelve a intentarlo."
+    );
+  }
+
+  const cobrado = r2(lista.reduce((a, p) => a + Number(p.total_cobrado ?? 0), 0));
+
+  if (lista.length > 0 && !d.forzar) {
+    throw new Error(
+      `${cl.nombre} tiene ${lista.length} préstamo(s) en el historial con ` +
+      `${cobrado.toLocaleString("es-DO", { minimumFractionDigits: 2 })} ya cobrados. ` +
+      "Al borrarlo se van también sus cuotas, sus pagos, sus recibos y la ganancia " +
+      "que esos préstamos le repartieron a los inversionistas. " +
+      "Confirma para borrarlo todo."
+    );
+  }
+
+  if (lista.length > 0) {
+    const { error: ep } = await sb
+      .from("ia_prestamos").delete().in("id", lista.map((p) => p.id));
+    if (ep) throw ep;
+  }
+
+  const { error } = await sb.from("ia_clientes").delete().eq("id", d.id);
+  if (error) throw error;
+
+  return {
+    ok: true,
+    nombre: cl.nombre,
+    codigo: cl.codigo,
+    prestamos_borrados: lista.length,
+  };
+}

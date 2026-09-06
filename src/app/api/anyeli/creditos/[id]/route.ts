@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { actualizar, eliminar, fail } from "@/lib/anyeli/crud";
 import { PRESTAMOS } from "@/lib/anyeli/tablas";
-import { actualizarMoras } from "@/lib/anyeli/motor";
+import { actualizarMoras, eliminarPrestamo } from "@/lib/anyeli/motor";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -43,8 +43,33 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   return actualizar(req, (await ctx.params).id, PRESTAMOS);
 }
 
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+/**
+ * DELETE sin parámetros: si el préstamo no tiene pagos se borra; si los tiene
+ * se cancela, para no perder la contabilidad.
+ *
+ * Con ?definitivo=1 se borra de verdad, con sus cuotas, pagos, recibos y
+ * distribuciones. Si ya tiene dinero cobrado hay que confirmar con &forzar=1.
+ */
+export async function DELETE(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
+  const sp = req.nextUrl.searchParams;
+  const definitivo = sp.get("definitivo");
+
+  if (definitivo === "1" || definitivo === "true") {
+    try {
+      const data = await eliminarPrestamo({
+        id,
+        forzar: sp.get("forzar") === "1" || sp.get("forzar") === "true",
+      });
+      return NextResponse.json({
+        data,
+        message: `El préstamo ${data.codigo} de ${data.cliente} se eliminó por completo.`,
+      });
+    } catch (err) {
+      return fail(err, "No se pudo eliminar el préstamo", 409);
+    }
+  }
+
   const sb = createAdminClient();
   const { data } = await sb.from("ia_pagos").select("id").eq("prestamo_id", id).limit(1);
   if (data && data.length > 0) {

@@ -72,6 +72,21 @@ export default function ClientesPrestamos() {
           ]}
         />
       )}
+      borrar={{
+        query: "definitivo=1",
+        etiqueta: "Eliminar",
+        confirmar: (f) =>
+          `¿Eliminar al cliente ${f.nombre}?\n\n` +
+          "Se borra su ficha y TODO su historial: préstamos, cuotas, pagos, recibos\n" +
+          "y el reparto de ganancias de esos préstamos.\n" +
+          "No se puede recuperar.\n\n" +
+          "Si todavía tiene un préstamo activo el sistema no lo dejará: primero\n" +
+          "hay que terminar de cobrarlo o cancelarlo.",
+        reintentar: {
+          query: "forzar=1",
+          confirmar: (mensaje) => `${mensaje}\n\n¿Continuar y borrarlo todo?`,
+        },
+      }}
       extraAcciones={(f) => (
         <Link
           href={`/anyeli/creditos/nuevo?cliente=${f.id}`}

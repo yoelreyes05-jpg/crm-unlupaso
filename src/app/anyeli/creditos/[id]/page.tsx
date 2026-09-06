@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   Aviso, Badge, Barra, Btn, Card, Cargando, ETIQUETA_ESTADO_CUOTA, ETIQUETA_FRECUENCIA,
   ETIQUETA_METODO, ETIQUETA_TIPO_PAGO, Etiqueta, Kpi, Modal, PCT, RD, Seccion, Tabla,
@@ -24,6 +24,7 @@ interface Detalle {
 
 export default function DetallePrestamo() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [d, setD] = useState<Detalle | null>(null);
   const [cfg, setCfg] = useState<PrConfig | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -35,6 +36,41 @@ export default function DetallePrestamo() {
   const [modalRedito, setModalRedito] = useState<PrCuotaVista | null>(null);
   const [modalAjuste, setModalAjuste] = useState<PrCuotaVista | null>(null);
   const [modalReenganche, setModalReenganche] = useState(false);
+
+  /** Borra el préstamo completo: cuotas, pagos, recibos y distribuciones. */
+  async function borrarPrestamo() {
+    const p = d?.prestamo;
+    if (!p) return;
+    const aviso =
+      `¿Eliminar el préstamo ${p.codigo} de ${p.cliente_nombre}?\n\n` +
+      "Se borra el préstamo con TODAS sus cuotas, sus pagos, sus recibos y el\n" +
+      "reparto de ganancias que generó.\n" +
+      "No se puede recuperar.";
+    if (!confirm(aviso)) return;
+
+    setProcesando(true);
+    setError("");
+    try {
+      await api(`/creditos/${id}?definitivo=1`, { metodo: "DELETE" });
+      router.push("/anyeli/creditos");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "No se pudo eliminar el préstamo";
+      // El servidor pide una segunda confirmación cuando ya hay dinero cobrado.
+      if (/[Cc]onfirma/.test(msg) && confirm(`${msg}\n\n¿Continuar y borrarlo todo?`)) {
+        try {
+          await api(`/creditos/${id}?definitivo=1&forzar=1`, { metodo: "DELETE" });
+          router.push("/anyeli/creditos");
+          return;
+        } catch (e2) {
+          setError(e2 instanceof Error ? e2.message : "No se pudo eliminar el préstamo");
+        }
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setProcesando(false);
+    }
+  }
 
   const cargar = useCallback(async () => {
     try {
@@ -110,6 +146,7 @@ export default function DetallePrestamo() {
                 <Btn tono="ok" onClick={() => setModalPago(proxima)}>Registrar pago</Btn>
               </>
             )}
+            <Btn tono="err" onClick={borrarPrestamo} disabled={procesando}>Eliminar</Btn>
           </>
         }
       />
